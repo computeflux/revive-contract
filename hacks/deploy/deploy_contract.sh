@@ -24,7 +24,7 @@ Usage:
 
 Options:
   --env <env>        Environment: local | test | main, loads configs/<env>.json
-  --name <name>      Contract name, e.g. cloud / subnet / proxy
+  --name <name>      Contract name, e.g. token / subnet / proxy
   --dir <dir>        Contract crate directory (directory containing Cargo.toml)
   --code <path>      Compiled .polkavm file path, default: <workspace-root>/target/<name>.release.polkavm
   --network <id>     SS58 network id, default: 42
@@ -35,7 +35,7 @@ Config files (configs/<env>.json):
   suri               Signer secret uri (required)
 
 Examples:
-  $(basename "$0") --env local --name cloud --dir "$ROOT/revives/Cloud"
+  $(basename "$0") --env local --name token --dir "$ROOT/revives/Token"
   $(basename "$0") --env test --name proxy --dir "$ROOT/revives/proxy"
   $(basename "$0") --env main --name subnet --dir "$ROOT/revives/Subnet"
 EOF

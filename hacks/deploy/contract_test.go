@@ -7,9 +7,9 @@ import (
 	"os"
 	"testing"
 
-	"wetee/test/contracts/cloud"
 	"wetee/test/contracts/proxy"
 	"wetee/test/contracts/subnet"
+	"wetee/test/contracts/token"
 
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	chain "github.com/wetee-dao/ink.go"
@@ -17,7 +17,7 @@ import (
 	"github.com/wetee-dao/ink.go/util"
 )
 
-func TestCloudUpdate(t *testing.T) {
+func TestTokenUpdate(t *testing.T) {
 	client, err := chain.InitClient([]string{TestChainUrl}, true)
 	if err != nil {
 		panic(err)
@@ -29,33 +29,32 @@ func TestCloudUpdate(t *testing.T) {
 		panic(err)
 	}
 
-	/// init pod
-	cloudData, err := os.ReadFile("../../target/cloud.release.polkavm")
+	tokenData, err := os.ReadFile("../../target/token.release.polkavm")
 	if err != nil {
 		util.LogWithPurple("read file error", err)
 		panic(err)
 	}
 
 	salt := genSalt()
-	res, err := cloud.DeployCloudWithNew(chain.DeployParams{
+	res, err := token.DeployTokenWithNew(chain.DeployParams{
 		Client: client,
 		Signer: &pk,
-		Code:   util.InkCode{Upload: &cloudData},
+		Code:   util.InkCode{Upload: &tokenData},
 		Salt:   util.NewSome(salt),
 	})
 	if err != nil {
-		util.LogWithPurple("DeployCloudWithNew", err)
+		util.LogWithPurple("DeployTokenWithNew", err)
 		panic(err)
 	}
-	fmt.Println("cloud address: ", res.Hex())
+	fmt.Println("token address: ", res.Hex())
 
-	cloudIns, err := proxy.InitProxyContract(client, CloudAddress)
+	tokenIns, err := proxy.InitProxyContract(client, TokenAddress)
 	if err != nil {
-		util.LogWithPurple("InitCloudContract", err)
+		util.LogWithPurple("InitTokenContract", err)
 		panic(err)
 	}
 
-	err = cloudIns.ExecUpgrade(*res, chain.ExecParams{
+	err = tokenIns.ExecUpgrade(*res, chain.ExecParams{
 		Signer:    &pk,
 		PayAmount: types.NewU128(*big.NewInt(0)),
 	})
@@ -64,8 +63,8 @@ func TestCloudUpdate(t *testing.T) {
 		panic(err)
 	}
 
-	fmt.Println("new cloud address: ", res.Hex())
-	fmt.Println("proxy address: ", cloudIns.ContractAddress().Hex())
+	fmt.Println("new token address: ", res.Hex())
+	fmt.Println("proxy address: ", tokenIns.ContractAddress().Hex())
 }
 
 func TestSubnetUpdate(t *testing.T) {
@@ -227,136 +226,4 @@ func genSalt() [32]byte {
 	copy(randomBytes[:], bytes)
 
 	return randomBytes
-}
-
-func TestCloudQuerySecret(t *testing.T) {
-	client, err := chain.InitClient([]string{TestChainUrl}, true)
-	if err != nil {
-		panic(err)
-	}
-
-	pk, err := chain.Sr25519PairFromSecret("//Alice", 42)
-	if err != nil {
-		util.LogWithPurple("Sr25519PairFromSecret", err)
-		panic(err)
-	}
-
-	cloudContract, err := cloud.InitCloudContract(client, CloudAddress)
-	if err != nil {
-		panic(err)
-	}
-
-	fmt.Println(pk.SS58Address(42))
-	fmt.Println(pk.H160Address().Hex())
-
-	_call := chain.ExecParams{
-		Signer:    &pk,
-		PayAmount: types.NewU128(*big.NewInt(0)),
-	}
-	err = cloudContract.ExecDelDisk(0, _call)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println("del disk:", err)
-
-	// err = cloudContract.ExecInitDisk([]byte("node0"), 10, _call)
-	// if err != nil {
-	// 	panic(err)
-	// }
-
-	disk, _, err := cloudContract.QueryDisk(pk.H160Address(), 0, chain.DryRunParams{
-		Origin:    pk.AccountID(),
-		PayAmount: types.NewU128(*big.NewInt(0)),
-	})
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println("disk", disk)
-
-	disks, _, err := cloudContract.QueryUserDisks(pk.H160Address(), util.NewNone[uint64](), 1000, chain.DryRunParams{
-		Origin:    pk.AccountID(),
-		PayAmount: types.NewU128(*big.NewInt(0)),
-	})
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println("disks:", disks)
-}
-
-func TestPodCharge(t *testing.T) {
-
-}
-
-func TestCloudTransfer(t *testing.T) {
-	client, err := chain.InitClient([]string{TestChainUrl}, true)
-	if err != nil {
-		panic(err)
-	}
-
-	pk, err := chain.Sr25519PairFromSecret("//Alice", 42)
-	if err != nil {
-		util.LogWithPurple("Sr25519PairFromSecret", err)
-		panic(err)
-	}
-
-	cloudContract, err := cloud.InitCloudContract(client, CloudAddress)
-	if err != nil {
-		panic(err)
-	}
-
-	tName := []byte("T")
-	err = cloudContract.ExecTransfer(cloud.AssetInfo{
-		Native: &tName,
-	}, pk.H160Address(), types.NewU256(*big.NewInt(10001)), chain.ExecParams{
-		Signer:    &pk,
-		PayAmount: types.NewU128(*big.NewInt(0)),
-	})
-	if err != nil {
-		panic(err)
-	}
-}
-
-// TestSubnetQuerySideChainKey tests querying side chain key from subnet contract
-func TestCloudQuerySecrets(t *testing.T) {
-	client, err := chain.InitClient([]string{TestChainUrl}, true)
-	if err != nil {
-		panic(err)
-	}
-
-	pk, err := chain.Sr25519PairFromSecret("//Alice", 42)
-	if err != nil {
-		util.LogWithPurple("Sr25519PairFromSecret", err)
-		panic(err)
-	}
-
-	cloudIns, err := cloud.InitCloudContract(client, CloudAddress)
-	if err != nil {
-		util.LogWithPurple("InitCloudContract", err)
-		panic(err)
-	}
-
-	err = cloudIns.ExecCreateSecret([]byte("test"), types.H256{}, chain.ExecParams{
-		Signer:    &pk,
-		PayAmount: types.NewU128(*big.NewInt(0)),
-	})
-	if err != nil {
-		util.LogWithPurple("ExecCreateSecret", err)
-		panic(err)
-	}
-
-	secrets, _, err := cloudIns.QueryUserSecrets(
-		pk.H160Address(),
-		util.NewNone[uint64](),
-		100,
-		chain.DryRunParams{
-			Origin:    pk.AccountID(),
-			PayAmount: types.NewU128(*big.NewInt(0)),
-		},
-	)
-	if err != nil {
-		util.LogWithPurple("QueryUserSecrets", err)
-		panic(err)
-	}
-
-	fmt.Printf("Secrets: %+v\n", secrets)
 }

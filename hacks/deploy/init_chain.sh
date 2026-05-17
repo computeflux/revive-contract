@@ -70,10 +70,9 @@ fi
 cd "$DIR"
 
 if [[ "$BUILD" == "true" ]]; then
-    cargo wrevive build -p pod
     cargo wrevive build -p subnet
-    cargo wrevive build -p cloud
     cargo wrevive build -p proxy
+    cargo wrevive build -p token
 fi
 
 go run ./cmd/deploy-full \

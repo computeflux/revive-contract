@@ -9,9 +9,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"wetee/test/contracts/cloud"
 	"wetee/test/contracts/proxy"
 	"wetee/test/contracts/subnet"
+	"wetee/test/contracts/token"
 
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	chain "github.com/wetee-dao/ink.go"
@@ -52,31 +52,23 @@ func main() {
 	var (
 		env     string
 		name    string
-		podID   uint64
 		dir     string
 		network uint
 	)
 
-	const podIDUnset = ^uint64(0)
-
 	flag.StringVar(&env, "env", "", "environment: local | test | main (loads configs/<env>.json)")
-	flag.StringVar(&name, "name", "", "contract to upgrade: cloud | subnet | pod-code | pod-contract")
-	flag.Uint64Var(&podID, "pod-id", podIDUnset, "pod id (required when name=pod-contract)")
+	flag.StringVar(&name, "name", "", "contract to upgrade: token | subnet")
 	flag.StringVar(&dir, "dir", ".", "workspace root directory (contains target/)")
 	flag.UintVar(&network, "network", 42, "ss58 network id")
 	flag.Parse()
 
 	if name == "" {
-		exitf("missing required flag: -name (cloud | subnet | pod-code | pod-contract)")
+		exitf("missing required flag: -name (token | subnet)")
 	}
 
-	validNames := map[string]bool{"cloud": true, "subnet": true, "pod-code": true, "pod-contract": true}
+	validNames := map[string]bool{"token": true, "subnet": true}
 	if !validNames[name] {
-		exitf("invalid contract name: %s (expected cloud, subnet, pod-code, or pod-contract)", name)
-	}
-
-	if name == "pod-contract" && podID == podIDUnset {
-		exitf("missing required flag: -pod-id (required when name=pod-contract)")
+		exitf("invalid contract name: %s (expected token, or subnet)", name)
 	}
 
 	// Load env config
@@ -110,51 +102,47 @@ func main() {
 	}
 
 	switch name {
-	case "cloud":
-		upgradeCloud(client, pk, envCfg, targetDir, callParams)
+	case "token":
+		upgradeToken(client, pk, envCfg, targetDir, callParams)
 	case "subnet":
 		upgradeSubnet(client, pk, envCfg, targetDir, callParams)
-	case "pod-code":
-		upgradePodCode(client, pk, envCfg, targetDir, callParams)
-	case "pod-contract":
-		upgradePodContract(client, pk, envCfg, callParams, podID)
 	}
 }
 
-func upgradeCloud(client *chain.ChainClient, pk chain.Signer, envCfg EnvConfig, targetDir string, callParams chain.ExecParams) {
-	proxyAddr := envCfg.Contracts["cloud"]
+func upgradeToken(client *chain.ChainClient, pk chain.Signer, envCfg EnvConfig, targetDir string, callParams chain.ExecParams) {
+	proxyAddr := envCfg.Contracts["token"]
 	if proxyAddr == "" {
-		exitf("cloud proxy address not found in config")
+		exitf("token proxy address not found in config")
 	}
 
-	code, err := os.ReadFile(filepath.Join(targetDir, "cloud.release.polkavm"))
+	code, err := os.ReadFile(filepath.Join(targetDir, "token.release.polkavm"))
 	if err != nil {
-		exitf("read cloud code: %v", err)
+		exitf("read token code: %v", err)
 	}
 
-	newImplAddr, err := cloud.DeployCloudWithNew(chain.DeployParams{
+	newImplAddr, err := token.DeployTokenWithNew(chain.DeployParams{
 		Client: client,
 		Signer: &pk,
 		Code:   util.InkCode{Upload: &code},
 		Salt:   util.NewSome(genSalt()),
 	})
 	if err != nil {
-		exitf("deploy cloud implementation: %v", err)
+		exitf("deploy token implementation: %v", err)
 	}
-	fmt.Println("cloud implementation deployed: ", newImplAddr.Hex())
+	fmt.Println("token implementation deployed: ", newImplAddr.Hex())
 
 	proxyContract, err := proxy.InitProxyContract(client, proxyAddr)
 	if err != nil {
-		exitf("init cloud proxy: %v", err)
+		exitf("init token proxy: %v", err)
 	}
 
 	err = proxyContract.ExecUpgrade(*newImplAddr, callParams)
 	if err != nil {
-		exitf("upgrade cloud proxy: %v", err)
+		exitf("upgrade token proxy: %v", err)
 	}
 
 	fmt.Println("========================================")
-	fmt.Println("cloud upgraded successfully")
+	fmt.Println("token upgraded successfully")
 	fmt.Println("proxy address:     ", proxyAddr)
 	fmt.Println("new impl address:  ", newImplAddr.Hex())
 	fmt.Println("========================================")
@@ -196,79 +184,6 @@ func upgradeSubnet(client *chain.ChainClient, pk chain.Signer, envCfg EnvConfig,
 	fmt.Println("subnet upgraded successfully")
 	fmt.Println("proxy address:     ", proxyAddr)
 	fmt.Println("new impl address:  ", newImplAddr.Hex())
-	fmt.Println("========================================")
-}
-
-func upgradePodCode(client *chain.ChainClient, pk chain.Signer, envCfg EnvConfig, targetDir string, callParams chain.ExecParams) {
-	cloudAddr := envCfg.Contracts["cloud"]
-	if cloudAddr == "" {
-		exitf("cloud address not found in config (required for pod-code upgrade)")
-	}
-
-	code, err := os.ReadFile(filepath.Join(targetDir, "pod.release.polkavm"))
-	if err != nil {
-		exitf("read pod code: %v", err)
-	}
-
-	codeHash, err := client.UploadInkCode(code, &pk)
-	if err != nil {
-		exitf("upload pod code: %v", err)
-	}
-	fmt.Println("pod code uploaded: ", codeHash.Hex())
-
-	// Deploy the new Pod implementation from uploaded code hash
-	podImplAddr, err := client.DeployContract(
-		util.InkCode{Existing: codeHash},
-		&pk,
-		types.NewU128(*big.NewInt(0)),
-		util.InkContractInput{
-			Selector: "0x00000000",
-			Args:     []any{},
-		},
-		util.NewSome(genSalt()),
-	)
-	if err != nil {
-		exitf("deploy pod impl: %v", err)
-	}
-	fmt.Println("pod impl deployed: ", podImplAddr.Hex())
-
-	cloudContract, err := cloud.InitCloudContract(client, cloudAddr)
-	if err != nil {
-		exitf("init cloud contract: %v", err)
-	}
-
-	err = cloudContract.ExecSetPodImpl(*podImplAddr, callParams)
-	if err != nil {
-		exitf("set pod impl: %v", err)
-	}
-
-	fmt.Println("========================================")
-	fmt.Println("pod code upgraded successfully")
-	fmt.Println("cloud address:     ", cloudAddr)
-	fmt.Println("new pod code hash: ", codeHash.Hex())
-	fmt.Println("========================================")
-}
-
-func upgradePodContract(client *chain.ChainClient, pk chain.Signer, envCfg EnvConfig, callParams chain.ExecParams, podID uint64) {
-	cloudAddr := envCfg.Contracts["cloud"]
-	if cloudAddr == "" {
-		exitf("cloud address not found in config (required for pod-contract upgrade)")
-	}
-
-	cloudContract, err := cloud.InitCloudContract(client, cloudAddr)
-	if err != nil {
-		exitf("init cloud contract: %v", err)
-	}
-
-	err = cloudContract.ExecUpdatePodContract(podID, callParams)
-	if err != nil {
-		exitf("update pod contract: %v", err)
-	}
-
-	fmt.Println("========================================")
-	fmt.Println("pod contract upgraded successfully")
-	fmt.Println("cloud address:     ", cloudAddr)
-	fmt.Println("pod id:            ", podID)
 	fmt.Println("========================================")
 }
 

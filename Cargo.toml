@@ -9,10 +9,7 @@ version = "0.1.0"
 [workspace]
 members = [
   # polkadot (wrevive / PolkaVM)
-  "revives/Pod",
   "revives/Subnet",
-  "revives/Cloud",
-  "revives/Dao",
   "revives/Proxy",
   "revives/Token",
 
@@ -24,8 +21,8 @@ resolver = "2"
 scale = { package = "parity-scale-codec", version = "3.7.4", default-features = false }
 scale-info = { version = "2.11", default-features = false }
 primitives = { path = "primitives" }
-wrevive-macro = { path = "../wrevive/crates/wrevive-macro" }
-wrevive-api = { path = "../wrevive/crates/wrevive-api", default-features = false }
+wrevive-macro = { path = "../../wetee/wrevive/crates/wrevive-macro" }
+wrevive-api = { path = "../../wetee/wrevive/crates/wrevive-api", default-features = false }
 
 [profile.release]
 codegen-units = 1

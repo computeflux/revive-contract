@@ -59,7 +59,7 @@ func (c *Subnet) DryRunInit(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0x25b9ac95",
+			Selector: "0x97b6771b",
 			Args:     []any{},
 		},
 	)
@@ -87,7 +87,7 @@ func (c *Subnet) ExecInit(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0x25b9ac95",
+			Selector: "0x97b6771b",
 			Args:     []any{},
 		},
 		__ink_params,
@@ -107,7 +107,7 @@ func (c *Subnet) CallOfInit(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0x25b9ac95",
+			Selector: "0x97b6771b",
 			Args:     []any{},
 		},
 	)
@@ -127,7 +127,7 @@ func (c *Subnet) QueryEpochInfo(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0xdd2be194",
+			Selector: "0x94109a6a",
 			Args:     []any{},
 		},
 	)
@@ -151,7 +151,7 @@ func (c *Subnet) DryRunSetEpochSlot(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0x6c9fe8a0",
+			Selector: "0x447fb97f",
 			Args:     []any{epoch_slot},
 		},
 	)
@@ -179,7 +179,7 @@ func (c *Subnet) ExecSetEpochSlot(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0x6c9fe8a0",
+			Selector: "0x447fb97f",
 			Args:     []any{epoch_slot},
 		},
 		__ink_params,
@@ -199,7 +199,7 @@ func (c *Subnet) CallOfSetEpochSlot(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0x6c9fe8a0",
+			Selector: "0x447fb97f",
 			Args:     []any{epoch_slot},
 		},
 	)
@@ -219,7 +219,7 @@ func (c *Subnet) QuerySideChainKey(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0x334cf907",
+			Selector: "0x3405e510",
 			Args:     []any{},
 		},
 	)
@@ -243,7 +243,7 @@ func (c *Subnet) DryRunSetRegion(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0x2c69fd19",
+			Selector: "0x9be00ada",
 			Args:     []any{name},
 		},
 	)
@@ -271,7 +271,7 @@ func (c *Subnet) ExecSetRegion(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0x2c69fd19",
+			Selector: "0x9be00ada",
 			Args:     []any{name},
 		},
 		__ink_params,
@@ -291,7 +291,7 @@ func (c *Subnet) CallOfSetRegion(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0x2c69fd19",
+			Selector: "0x9be00ada",
 			Args:     []any{name},
 		},
 	)
@@ -311,7 +311,7 @@ func (c *Subnet) QueryRegion(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0x90524f41",
+			Selector: "0x04fa4af4",
 			Args:     []any{id},
 		},
 	)
@@ -335,7 +335,7 @@ func (c *Subnet) QueryRegions(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0xb11965c1",
+			Selector: "0x0c51e916",
 			Args:     []any{},
 		},
 	)
@@ -359,7 +359,7 @@ func (c *Subnet) DryRunSetLevelPrice(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0x7159e191",
+			Selector: "0xdb7a9a1b",
 			Args:     []any{level, price},
 		},
 	)
@@ -387,7 +387,7 @@ func (c *Subnet) ExecSetLevelPrice(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0x7159e191",
+			Selector: "0xdb7a9a1b",
 			Args:     []any{level, price},
 		},
 		__ink_params,
@@ -407,7 +407,7 @@ func (c *Subnet) CallOfSetLevelPrice(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0x7159e191",
+			Selector: "0xdb7a9a1b",
 			Args:     []any{level, price},
 		},
 	)
@@ -427,7 +427,7 @@ func (c *Subnet) QueryLevelPrice(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0x99df4df3",
+			Selector: "0x2dcb3906",
 			Args:     []any{level},
 		},
 	)
@@ -451,7 +451,7 @@ func (c *Subnet) DryRunSetAsset(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0x4fbded83",
+			Selector: "0x2455d716",
 			Args:     []any{info, price},
 		},
 	)
@@ -479,7 +479,7 @@ func (c *Subnet) ExecSetAsset(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0x4fbded83",
+			Selector: "0x2455d716",
 			Args:     []any{info, price},
 		},
 		__ink_params,
@@ -499,7 +499,7 @@ func (c *Subnet) CallOfSetAsset(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0x4fbded83",
+			Selector: "0x2455d716",
 			Args:     []any{info, price},
 		},
 	)
@@ -519,7 +519,7 @@ func (c *Subnet) QueryAsset(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0x48139d63",
+			Selector: "0x0bd40606",
 			Args:     []any{id},
 		},
 	)
@@ -543,7 +543,7 @@ func (c *Subnet) DryRunSetCloudContract(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0x2316651f",
+			Selector: "0xf42fd05e",
 			Args:     []any{addr},
 		},
 	)
@@ -571,7 +571,7 @@ func (c *Subnet) ExecSetCloudContract(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0x2316651f",
+			Selector: "0xf42fd05e",
 			Args:     []any{addr},
 		},
 		__ink_params,
@@ -591,7 +591,7 @@ func (c *Subnet) CallOfSetCloudContract(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0x2316651f",
+			Selector: "0xf42fd05e",
 			Args:     []any{addr},
 		},
 	)
@@ -611,7 +611,7 @@ func (c *Subnet) QueryCloudContract(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0x8b70fb23",
+			Selector: "0x6ad59a25",
 			Args:     []any{},
 		},
 	)
@@ -635,7 +635,7 @@ func (c *Subnet) DryRunSetMinMortgage(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0x0d1e75a9",
+			Selector: "0x2f4c1fc8",
 			Args:     []any{amount},
 		},
 	)
@@ -663,7 +663,7 @@ func (c *Subnet) ExecSetMinMortgage(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0x0d1e75a9",
+			Selector: "0x2f4c1fc8",
 			Args:     []any{amount},
 		},
 		__ink_params,
@@ -683,7 +683,7 @@ func (c *Subnet) CallOfSetMinMortgage(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0x0d1e75a9",
+			Selector: "0x2f4c1fc8",
 			Args:     []any{amount},
 		},
 	)
@@ -703,7 +703,7 @@ func (c *Subnet) QueryMinMortgage(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0xd4a4e1ac",
+			Selector: "0xffba6a8f",
 			Args:     []any{},
 		},
 	)
@@ -727,7 +727,7 @@ func (c *Subnet) DryRunSetLevelMinMortgage(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0xb752c615",
+			Selector: "0xa129a90b",
 			Args:     []any{level, amount},
 		},
 	)
@@ -755,7 +755,7 @@ func (c *Subnet) ExecSetLevelMinMortgage(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0xb752c615",
+			Selector: "0xa129a90b",
 			Args:     []any{level, amount},
 		},
 		__ink_params,
@@ -775,7 +775,7 @@ func (c *Subnet) CallOfSetLevelMinMortgage(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0xb752c615",
+			Selector: "0xa129a90b",
 			Args:     []any{level, amount},
 		},
 	)
@@ -795,7 +795,7 @@ func (c *Subnet) QueryLevelMinMortgage(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0xe11eb329",
+			Selector: "0x67cfee00",
 			Args:     []any{level},
 		},
 	)
@@ -819,7 +819,7 @@ func (c *Subnet) QueryWorkerTotalResources(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0x1be9202d",
+			Selector: "0x0687a907",
 			Args:     []any{worker_id},
 		},
 	)
@@ -843,7 +843,7 @@ func (c *Subnet) QueryWorkerTotalMortgage(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0x340487c0",
+			Selector: "0xb1a75af1",
 			Args:     []any{worker_id},
 		},
 	)
@@ -867,7 +867,7 @@ func (c *Subnet) DryRunSlashWorkerMortgage(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0x174e58ad",
+			Selector: "0x16b80a11",
 			Args:     []any{worker_id, amount, to},
 		},
 	)
@@ -895,7 +895,7 @@ func (c *Subnet) ExecSlashWorkerMortgage(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0x174e58ad",
+			Selector: "0x16b80a11",
 			Args:     []any{worker_id, amount, to},
 		},
 		__ink_params,
@@ -915,7 +915,7 @@ func (c *Subnet) CallOfSlashWorkerMortgage(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0x174e58ad",
+			Selector: "0x16b80a11",
 			Args:     []any{worker_id, amount, to},
 		},
 	)
@@ -935,7 +935,7 @@ func (c *Subnet) QueryWorker(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0xb5af8668",
+			Selector: "0xfbdd2921",
 			Args:     []any{id},
 		},
 	)
@@ -959,7 +959,7 @@ func (c *Subnet) QueryWorkers(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0x38269b2d",
+			Selector: "0x091da8ad",
 			Args:     []any{start, size},
 		},
 	)
@@ -983,7 +983,7 @@ func (c *Subnet) QueryUserWorker(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0xf540bb72",
+			Selector: "0xc95fc076",
 			Args:     []any{user},
 		},
 	)
@@ -1007,7 +1007,7 @@ func (c *Subnet) QueryMintWorker(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0x25433b3a",
+			Selector: "0x08330ff4",
 			Args:     []any{id},
 		},
 	)
@@ -1031,7 +1031,7 @@ func (c *Subnet) DryRunWorkerRegister(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0x67b84412",
+			Selector: "0x1651118b",
 			Args:     []any{name, p2p_id, ip, port, level, region_id},
 		},
 	)
@@ -1059,7 +1059,7 @@ func (c *Subnet) ExecWorkerRegister(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0x67b84412",
+			Selector: "0x1651118b",
 			Args:     []any{name, p2p_id, ip, port, level, region_id},
 		},
 		__ink_params,
@@ -1079,7 +1079,7 @@ func (c *Subnet) CallOfWorkerRegister(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0x67b84412",
+			Selector: "0x1651118b",
 			Args:     []any{name, p2p_id, ip, port, level, region_id},
 		},
 	)
@@ -1099,7 +1099,7 @@ func (c *Subnet) DryRunWorkerUpdate(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0x76cb4d39",
+			Selector: "0x99440f2f",
 			Args:     []any{id, name, ip, port},
 		},
 	)
@@ -1127,7 +1127,7 @@ func (c *Subnet) ExecWorkerUpdate(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0x76cb4d39",
+			Selector: "0x99440f2f",
 			Args:     []any{id, name, ip, port},
 		},
 		__ink_params,
@@ -1147,7 +1147,7 @@ func (c *Subnet) CallOfWorkerUpdate(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0x76cb4d39",
+			Selector: "0x99440f2f",
 			Args:     []any{id, name, ip, port},
 		},
 	)
@@ -1167,7 +1167,7 @@ func (c *Subnet) DryRunWorkerMortgage(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0x7d55701a",
+			Selector: "0xda110525",
 			Args:     []any{id, cpu, mem, cvm_cpu, cvm_mem, disk, gpu, deposit},
 		},
 	)
@@ -1195,7 +1195,7 @@ func (c *Subnet) ExecWorkerMortgage(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0x7d55701a",
+			Selector: "0xda110525",
 			Args:     []any{id, cpu, mem, cvm_cpu, cvm_mem, disk, gpu, deposit},
 		},
 		__ink_params,
@@ -1215,7 +1215,7 @@ func (c *Subnet) CallOfWorkerMortgage(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0x7d55701a",
+			Selector: "0xda110525",
 			Args:     []any{id, cpu, mem, cvm_cpu, cvm_mem, disk, gpu, deposit},
 		},
 	)
@@ -1235,7 +1235,7 @@ func (c *Subnet) DryRunWorkerUnmortgage(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0xa82a4c16",
+			Selector: "0x35ad6540",
 			Args:     []any{worker_id, mortgage_id},
 		},
 	)
@@ -1263,7 +1263,7 @@ func (c *Subnet) ExecWorkerUnmortgage(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0xa82a4c16",
+			Selector: "0x35ad6540",
 			Args:     []any{worker_id, mortgage_id},
 		},
 		__ink_params,
@@ -1283,7 +1283,7 @@ func (c *Subnet) CallOfWorkerUnmortgage(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0xa82a4c16",
+			Selector: "0x35ad6540",
 			Args:     []any{worker_id, mortgage_id},
 		},
 	)
@@ -1303,7 +1303,7 @@ func (c *Subnet) DryRunWorkerStart(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0x809a9d5f",
+			Selector: "0x452e7782",
 			Args:     []any{id},
 		},
 	)
@@ -1331,7 +1331,7 @@ func (c *Subnet) ExecWorkerStart(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0x809a9d5f",
+			Selector: "0x452e7782",
 			Args:     []any{id},
 		},
 		__ink_params,
@@ -1351,7 +1351,7 @@ func (c *Subnet) CallOfWorkerStart(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0x809a9d5f",
+			Selector: "0x452e7782",
 			Args:     []any{id},
 		},
 	)
@@ -1371,7 +1371,7 @@ func (c *Subnet) DryRunWorkerStop(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0xc2391e1b",
+			Selector: "0x110c0a1d",
 			Args:     []any{id},
 		},
 	)
@@ -1399,7 +1399,7 @@ func (c *Subnet) ExecWorkerStop(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0xc2391e1b",
+			Selector: "0x110c0a1d",
 			Args:     []any{id},
 		},
 		__ink_params,
@@ -1419,7 +1419,7 @@ func (c *Subnet) CallOfWorkerStop(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0xc2391e1b",
+			Selector: "0x110c0a1d",
 			Args:     []any{id},
 		},
 	)
@@ -1439,7 +1439,7 @@ func (c *Subnet) DryRunSetBootNodes(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0xd26c4384",
+			Selector: "0x1aba92c9",
 			Args:     []any{nodes},
 		},
 	)
@@ -1467,7 +1467,7 @@ func (c *Subnet) ExecSetBootNodes(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0xd26c4384",
+			Selector: "0x1aba92c9",
 			Args:     []any{nodes},
 		},
 		__ink_params,
@@ -1487,7 +1487,7 @@ func (c *Subnet) CallOfSetBootNodes(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0xd26c4384",
+			Selector: "0x1aba92c9",
 			Args:     []any{nodes},
 		},
 	)
@@ -1507,7 +1507,7 @@ func (c *Subnet) QueryBootNodes(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0xa60cc5c0",
+			Selector: "0x07f71920",
 			Args:     []any{},
 		},
 	)
@@ -1535,7 +1535,7 @@ func (c *Subnet) QueryGetPendingSecrets(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0xbc8e5d44",
+			Selector: "0xc1a85ab6",
 			Args:     []any{},
 		},
 	)
@@ -1559,7 +1559,7 @@ func (c *Subnet) QuerySecrets(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0xf3e23961",
+			Selector: "0xd66480a2",
 			Args:     []any{},
 		},
 	)
@@ -1583,7 +1583,7 @@ func (c *Subnet) DryRunSecretRegister(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0xbd9b2eb3",
+			Selector: "0xa95b15c7",
 			Args:     []any{name, validator_id, p2p_id, ip, port},
 		},
 	)
@@ -1611,7 +1611,7 @@ func (c *Subnet) ExecSecretRegister(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0xbd9b2eb3",
+			Selector: "0xa95b15c7",
 			Args:     []any{name, validator_id, p2p_id, ip, port},
 		},
 		__ink_params,
@@ -1631,7 +1631,7 @@ func (c *Subnet) CallOfSecretRegister(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0xbd9b2eb3",
+			Selector: "0xa95b15c7",
 			Args:     []any{name, validator_id, p2p_id, ip, port},
 		},
 	)
@@ -1651,7 +1651,7 @@ func (c *Subnet) DryRunSecretUpdate(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0x3f9286d7",
+			Selector: "0xbd5004c5",
 			Args:     []any{id, name, ip, port},
 		},
 	)
@@ -1679,7 +1679,7 @@ func (c *Subnet) ExecSecretUpdate(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0x3f9286d7",
+			Selector: "0xbd5004c5",
 			Args:     []any{id, name, ip, port},
 		},
 		__ink_params,
@@ -1699,7 +1699,7 @@ func (c *Subnet) CallOfSecretUpdate(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0x3f9286d7",
+			Selector: "0xbd5004c5",
 			Args:     []any{id, name, ip, port},
 		},
 	)
@@ -1719,7 +1719,7 @@ func (c *Subnet) DryRunSecretDeposit(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0x51685fb5",
+			Selector: "0x4eb0e585",
 			Args:     []any{id, deposit},
 		},
 	)
@@ -1747,7 +1747,7 @@ func (c *Subnet) ExecSecretDeposit(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0x51685fb5",
+			Selector: "0x4eb0e585",
 			Args:     []any{id, deposit},
 		},
 		__ink_params,
@@ -1767,7 +1767,7 @@ func (c *Subnet) CallOfSecretDeposit(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0x51685fb5",
+			Selector: "0x4eb0e585",
 			Args:     []any{id, deposit},
 		},
 	)
@@ -1787,7 +1787,7 @@ func (c *Subnet) DryRunSecretDelete(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0xc3c405f0",
+			Selector: "0xaba6a2cd",
 			Args:     []any{id},
 		},
 	)
@@ -1815,7 +1815,7 @@ func (c *Subnet) ExecSecretDelete(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0xc3c405f0",
+			Selector: "0xaba6a2cd",
 			Args:     []any{id},
 		},
 		__ink_params,
@@ -1835,7 +1835,7 @@ func (c *Subnet) CallOfSecretDelete(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0xc3c405f0",
+			Selector: "0xaba6a2cd",
 			Args:     []any{id},
 		},
 	)
@@ -1855,7 +1855,7 @@ func (c *Subnet) QueryValidators(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0x9e0b225c",
+			Selector: "0x4ee81d24",
 			Args:     []any{},
 		},
 	)
@@ -1879,7 +1879,7 @@ func (c *Subnet) DryRunValidatorJoin(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0x3fd6f795",
+			Selector: "0x67e6e1dc",
 			Args:     []any{id},
 		},
 	)
@@ -1907,7 +1907,7 @@ func (c *Subnet) ExecValidatorJoin(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0x3fd6f795",
+			Selector: "0x67e6e1dc",
 			Args:     []any{id},
 		},
 		__ink_params,
@@ -1927,7 +1927,7 @@ func (c *Subnet) CallOfValidatorJoin(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0x3fd6f795",
+			Selector: "0x67e6e1dc",
 			Args:     []any{id},
 		},
 	)
@@ -1947,7 +1947,7 @@ func (c *Subnet) DryRunValidatorDelete(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0x6cb75fa6",
+			Selector: "0x69b09801",
 			Args:     []any{id},
 		},
 	)
@@ -1975,7 +1975,7 @@ func (c *Subnet) ExecValidatorDelete(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0x6cb75fa6",
+			Selector: "0x69b09801",
 			Args:     []any{id},
 		},
 		__ink_params,
@@ -1995,7 +1995,7 @@ func (c *Subnet) CallOfValidatorDelete(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0x6cb75fa6",
+			Selector: "0x69b09801",
 			Args:     []any{id},
 		},
 	)
@@ -2015,7 +2015,7 @@ func (c *Subnet) DryRunSetNextEpoch(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0x57c9fedf",
+			Selector: "0x0cfd9bc7",
 			Args:     []any{_node_id},
 		},
 	)
@@ -2043,7 +2043,7 @@ func (c *Subnet) ExecSetNextEpoch(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0x57c9fedf",
+			Selector: "0x0cfd9bc7",
 			Args:     []any{_node_id},
 		},
 		__ink_params,
@@ -2063,7 +2063,7 @@ func (c *Subnet) CallOfSetNextEpoch(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0x57c9fedf",
+			Selector: "0x0cfd9bc7",
 			Args:     []any{_node_id},
 		},
 	)
@@ -2083,7 +2083,7 @@ func (c *Subnet) QueryNextEpochValidators(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0xf05b9327",
+			Selector: "0xa1262752",
 			Args:     []any{},
 		},
 	)

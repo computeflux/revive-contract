@@ -13,7 +13,6 @@ ROOT="$(cd "$DIR/../../" && pwd)"
 ENV="local"
 NETWORK="42"
 NAME=""
-POD_ID=""
 BUILD="true"
 
 usage() {
@@ -23,8 +22,7 @@ Usage:
 
 Options:
   --env <env>        Environment: local | test | main, loads configs/<env>.json
-  --name <name>      Contract to upgrade: cloud | subnet | pod-code | pod-contract
-  --pod-id <id>      Pod ID (required when name=pod-contract)
+  --name <name>      Contract to upgrade: token | subnet
   --network <id>     SS58 network id, default: 42
   --build <bool>     Whether to run cargo wrevive build first, default: true
 
@@ -32,20 +30,16 @@ Config files (configs/<env>.json):
   url                Blockchain websocket url (required)
   suri               Signer secret uri (required)
   contracts          Deployed contract addresses (required)
-    - cloud          Cloud proxy address
+    - token          Token proxy address
     - subnet         Subnet proxy address
 
-Upgrade types:
-  cloud              Deploy new Cloud implementation and upgrade proxy
+Valid names:
+  token              Deploy new Token implementation and upgrade proxy
   subnet             Deploy new Subnet implementation and upgrade proxy
-  pod-code           Upload new Pod code and update Cloud's pod code hash
-  pod-contract       Update an existing pod's contract via Cloud
 
 Examples:
-  $(basename "$0") --env local --name cloud
+  $(basename "$0") --env local --name token
   $(basename "$0") --env test --name subnet --build false
-  $(basename "$0") --env local --name pod-code
-  $(basename "$0") --env local --name pod-contract --pod-id 1
 EOF
 }
 
@@ -53,7 +47,6 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --env) ENV="$2"; shift 2 ;;
         --name) NAME="$2"; shift 2 ;;
-        --pod-id) POD_ID="$2"; shift 2 ;;
         --network) NETWORK="$2"; shift 2 ;;
         --build) BUILD="$2"; shift 2 ;;
         -h|--help) usage; exit 0 ;;
@@ -92,22 +85,13 @@ cd "$DIR"
 
 if [[ "$BUILD" == "true" ]]; then
     case "$NAME" in
-        cloud)
-            cargo wrevive build -p cloud
+        token)
+            cargo wrevive build -p token
             ;;
         subnet)
             cargo wrevive build -p subnet
             ;;
-        pod-code|pod-contract)
-            cargo wrevive build -p pod
-            ;;
     esac
-fi
-
-if [[ "$NAME" == "pod-contract" && -z "$POD_ID" ]]; then
-    echo "Error: --pod-id is required when --name=pod-contract" >&2
-    usage
-    exit 1
 fi
 
 ARGS=(
@@ -116,9 +100,5 @@ ARGS=(
     -dir "$ROOT"
     -network "$NETWORK"
 )
-
-if [[ "$NAME" == "pod-contract" ]]; then
-    ARGS+=( -pod-id "$POD_ID" )
-fi
 
 go run ./cmd/upgrade-contract "${ARGS[@]}"

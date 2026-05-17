@@ -59,7 +59,7 @@ func (c *Proxy) QueryGetImplementation(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0x0cad1184",
+			Selector: "0x7e169176",
 			Args:     []any{},
 		},
 	)
@@ -83,7 +83,7 @@ func (c *Proxy) QueryGetAdmin(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0x8c0b0940",
+			Selector: "0x294ec576",
 			Args:     []any{},
 		},
 	)
@@ -107,7 +107,7 @@ func (c *Proxy) DryRunUpgrade(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0x8c307d4c",
+			Selector: "0x00f2f7c1",
 			Args:     []any{implementation},
 		},
 	)
@@ -135,7 +135,7 @@ func (c *Proxy) ExecUpgrade(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0x8c307d4c",
+			Selector: "0x00f2f7c1",
 			Args:     []any{implementation},
 		},
 		__ink_params,
@@ -155,7 +155,7 @@ func (c *Proxy) CallOfUpgrade(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0x8c307d4c",
+			Selector: "0x00f2f7c1",
 			Args:     []any{implementation},
 		},
 	)
@@ -175,7 +175,7 @@ func (c *Proxy) DryRunTransferAdmin(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0xb5579364",
+			Selector: "0x19d3f49a",
 			Args:     []any{new_admin},
 		},
 	)
@@ -203,7 +203,7 @@ func (c *Proxy) ExecTransferAdmin(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0xb5579364",
+			Selector: "0x19d3f49a",
 			Args:     []any{new_admin},
 		},
 		__ink_params,
@@ -223,7 +223,7 @@ func (c *Proxy) CallOfTransferAdmin(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0xb5579364",
+			Selector: "0x19d3f49a",
 			Args:     []any{new_admin},
 		},
 	)

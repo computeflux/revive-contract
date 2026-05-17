@@ -1,7 +1,7 @@
 //! Token 合约单元测试。使用 off_chain Engine (wrevive_api::with_engine)。
 
 use super::*;
-use wrevive_api::{with_engine, Address, U256};
+use wrevive_api::{Address, U256, with_engine};
 
 fn alice() -> Address {
     Address::from([10u8; 20])
@@ -286,4 +286,86 @@ fn emergency_withdraw_by_non_owner_fails() {
     with_engine(|e| e.set_caller(bob().0));
     let res = token::emergency_withdraw();
     assert_eq!(res, Err(Error::OnlyOwner));
+}
+
+// ========== Sol ABI 编码测试 ==========
+
+#[test]
+fn sol_recharge_works() {
+    setup_deployed_and_inited();
+    with_engine(|e| {
+        e.set_caller(alice().0);
+        e.value_transferred = U256::from(5u64);
+    });
+    let points = token::recharge_sol().unwrap();
+    // 5 ETH * 1000 rate = 5000 points
+    assert_eq!(points, U256::from(5000u64));
+    assert_eq!(token::get_balance_sol(alice()), U256::from(5u64));
+}
+
+#[test]
+fn sol_recharge_zero_value_fails() {
+    setup_deployed_and_inited();
+    with_engine(|e| {
+        e.set_caller(alice().0);
+        e.value_transferred = U256::from(0u64);
+    });
+    let res = token::recharge_sol();
+    assert_eq!(res, Err(Error::AmountMustBeGreaterThanZero));
+}
+
+#[test]
+fn sol_withdraw_by_subnet_works() {
+    setup_deployed_and_inited();
+    let _ = token::set_subnet(subnet_addr());
+
+    // Alice 充值
+    with_engine(|e| {
+        e.set_caller(alice().0);
+        e.value_transferred = U256::from(10u64);
+    });
+    let _ = token::recharge_sol().unwrap();
+
+    // Subnet 提现
+    with_engine(|e| e.set_caller(subnet_addr().0));
+    let _ = token::withdraw_sol(alice(), U256::from(3u64));
+    assert_eq!(token::get_balance_sol(alice()), U256::from(7u64));
+}
+
+#[test]
+fn sol_withdraw_without_subnet_fails() {
+    setup_deployed_and_inited();
+    let _ = token::set_subnet(subnet_addr());
+
+    with_engine(|e| {
+        e.set_caller(alice().0);
+        e.value_transferred = U256::from(10u64);
+    });
+    let _ = token::recharge_sol().unwrap();
+
+    // 非 Subnet 调用提现
+    with_engine(|e| e.set_caller(bob().0));
+    let res = token::withdraw_sol(alice(), U256::from(1u64));
+    assert_eq!(res, Err(Error::OnlySubnet));
+}
+
+#[test]
+fn sol_get_rate_works() {
+    setup_deployed_and_inited();
+    assert_eq!(token::get_rate_sol(), U256::from(1000u64));
+    let _ = token::set_rate(U256::from(500u64));
+    assert_eq!(token::get_rate_sol(), U256::from(500u64));
+}
+
+#[test]
+fn sol_owner_matches_openzeppelin() {
+    setup_deployed_and_inited();
+    // owner_sol 的选择器 0x8da5cb5b 与 OpenZeppelin Ownable.owner() 一致
+    assert_eq!(token::owner_sol(), alice());
+}
+
+#[test]
+fn sol_to_points_converts() {
+    setup_deployed_and_inited();
+    assert_eq!(token::to_points_sol(U256::from(2u64)), U256::from(2000u64));
 }

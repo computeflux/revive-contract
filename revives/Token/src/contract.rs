@@ -3,6 +3,10 @@
 //!
 //! Subnet 合约作为管理员。用户充值直接调用，提现必须由 Subnet 合约调用。
 //! 配合 Proxy 合约实现 UUPS 可升级模式。
+//!
+//! 双重编码支持：
+//! - SCALE 编码（默认）：与 wrevive 生态兼容
+//! - Sol ABI 编码（_sol 后缀）：与 MetaMask / Remix / ethers.js 兼容
 
 #![cfg_attr(not(test), no_std)]
 #![cfg_attr(not(test), no_main)]
@@ -91,74 +95,37 @@ pub mod token {
         Ok(())
     }
 
-    // ========== 充值/提现 ==========
+    // ========== 充值/提现 (SCALE 编码 — wrevive 生态) ==========
 
     /// 用户充值 ETH 换取积分。
     ///
-    /// 调用时需附带 ETH（通过 `transferred_value`）。返回获得的积分数量。
-    ///
-    /// # 返回值
-    /// - `Ok(points_amount)`：充值成功，返回积分数量。
+    /// 调用时需附带 ETH（通过 `transferred_value`）。
     #[revive(message, write, payable)]
     pub fn recharge() -> Result<U256, Error> {
-        let api = env();
-        let caller = api.caller();
-        let value = api.transferred_value();
-        ensure!(value > U256::from(0u64), Error::AmountMustBeGreaterThanZero);
-
-        let rate = RATE.get().unwrap_or(U256::from(1000u64));
-        let points_amount = value * rate;
-
-        // 更新余额
-        let current = BALANCES.get(&caller).unwrap_or(U256::from(0u64));
-        BALANCES.set(&caller, &(current + value));
-
-        Ok(points_amount)
+        recharge_impl()
     }
 
     /// 提现（仅 Subnet 合约可调用）。
-    ///
-    /// - `user`：提现目标用户地址。
-    /// - `eth_amount`：提现 ETH 数量。
     #[revive(message, write)]
     pub fn withdraw(user: Address, eth_amount: U256) -> Result<(), Error> {
-        ensure_subnet()?;
-        ensure!(
-            eth_amount > U256::from(0u64),
-            Error::AmountMustBeGreaterThanZero
-        );
-
-        let balance = BALANCES.get(&user).unwrap_or(U256::from(0u64));
-        ensure!(balance >= eth_amount, Error::InsufficientBalance);
-
-        // 扣减余额
-        BALANCES.set(&user, &(balance - eth_amount));
-
-        // 转账 ETH 给用户
-        let api = env();
-        api.transfer(&user, &eth_amount)
-            .map_err(|_| Error::TransferFailed)?;
-
-        Ok(())
+        withdraw_impl(user, eth_amount)
     }
 
-    // ========== 管理 ==========
+    // ========== 充值/提现 (Sol ABI 编码 — MetaMask / Remix 兼容) ==========
 
-    /// 紧急提现：将合约内所有 ETH 转给 owner。
-    #[revive(message, write)]
-    pub fn emergency_withdraw() -> Result<(), Error> {
-        ensure_owner()?;
-        let api = env();
-        let contract_balance = api.balance();
-        if contract_balance > U256::from(0u64) {
-            let owner_addr = OWNER.get().unwrap_or(Address::zero());
-            api.transfer(&owner_addr, &contract_balance)
-                .map_err(|_| Error::TransferFailed)?;
-        }
-        Ok(())
+    /// Solidity ABI 充值。选择器 = keccak256("recharge()") = 0x632c147b
+    #[revive(message, write, payable, sol)]
+    pub fn recharge_sol() -> Result<U256, Error> {
+        recharge_impl()
     }
 
-    // ========== 查询 ==========
+    /// Solidity ABI 提现。选择器 = keccak256("withdraw(address,uint256)") = 0xf3fef3a3
+    #[revive(message, write, sol)]
+    pub fn withdraw_sol(user: Address, eth_amount: U256) -> Result<(), Error> {
+        withdraw_impl(user, eth_amount)
+    }
+
+    // ========== 查询 (SCALE 编码) ==========
 
     /// 查询用户余额（ETH 充值量）。
     #[revive(message)]
@@ -191,6 +158,49 @@ pub mod token {
         OWNER.get().unwrap_or(Address::zero())
     }
 
+    // ========== 查询 (Sol ABI 编码 — MetaMask / Remix 兼容) ==========
+
+    /// Sol ABI 查询余额。选择器 = keccak256("get_balance(address)") = 0x1e279a37
+    #[revive(message, sol)]
+    pub fn get_balance_sol(user: Address) -> U256 {
+        BALANCES.get(&user).unwrap_or(U256::from(0u64))
+    }
+
+    /// Sol ABI 积分换算。选择器 = keccak256("to_points(uint256)") = 0x3c97b09a
+    #[revive(message, sol)]
+    pub fn to_points_sol(eth_amount: U256) -> U256 {
+        let rate = RATE.get().unwrap_or(U256::from(1000u64));
+        eth_amount * rate
+    }
+
+    /// Sol ABI 查询兑换率。选择器 = keccak256("get_rate()") = 0x533178e5
+    #[revive(message, sol)]
+    pub fn get_rate_sol() -> U256 {
+        RATE.get().unwrap_or(U256::from(1000u64))
+    }
+
+    /// Sol ABI 查询 owner。选择器 = keccak256("owner()") = 0x8da5cb5b（OpenZeppelin Ownable 标准）
+    #[revive(message, sol)]
+    pub fn owner_sol() -> Address {
+        OWNER.get().unwrap_or(Address::zero())
+    }
+
+    // ========== 管理 ==========
+
+    /// 紧急提现：将合约内所有 ETH 转给 owner。
+    #[revive(message, write)]
+    pub fn emergency_withdraw() -> Result<(), Error> {
+        ensure_owner()?;
+        let api = env();
+        let contract_balance = api.balance();
+        if contract_balance > U256::from(0u64) {
+            let owner_addr = OWNER.get().unwrap_or(Address::zero());
+            api.transfer(&owner_addr, &contract_balance)
+                .map_err(|_| Error::TransferFailed)?;
+        }
+        Ok(())
+    }
+
     // ========== 默认充值（fallback） ==========
 
     /// receive() 等价：直接向合约转账 ETH 即视为充值。
@@ -198,12 +208,48 @@ pub mod token {
     pub fn fallback() {
         let api = env();
         let caller = api.caller();
-        let value = api.transferred_value();
+        let value = api.value_transferred();
 
         if value > U256::from(0u64) {
             let current = BALANCES.get(&caller).unwrap_or(U256::from(0u64));
             BALANCES.set(&caller, &(current + value));
         }
+    }
+
+    // ========== 内部实现 ==========
+
+    fn recharge_impl() -> Result<U256, Error> {
+        let api = env();
+        let caller = api.caller();
+        let value = api.value_transferred();
+        ensure!(value > U256::from(0u64), Error::AmountMustBeGreaterThanZero);
+
+        let rate = RATE.get().unwrap_or(U256::from(1000u64));
+        let points_amount = value * rate;
+
+        let current = BALANCES.get(&caller).unwrap_or(U256::from(0u64));
+        BALANCES.set(&caller, &(current + value));
+
+        Ok(points_amount)
+    }
+
+    fn withdraw_impl(user: Address, eth_amount: U256) -> Result<(), Error> {
+        ensure_subnet()?;
+        ensure!(
+            eth_amount > U256::from(0u64),
+            Error::AmountMustBeGreaterThanZero
+        );
+
+        let balance = BALANCES.get(&user).unwrap_or(U256::from(0u64));
+        ensure!(balance >= eth_amount, Error::InsufficientBalance);
+
+        BALANCES.set(&user, &(balance - eth_amount));
+
+        let api = env();
+        api.transfer(&user, &eth_amount)
+            .map_err(|_| Error::TransferFailed)?;
+
+        Ok(())
     }
 
     // ========== 内部辅助 ==========

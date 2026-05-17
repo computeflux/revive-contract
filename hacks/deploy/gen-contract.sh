@@ -13,7 +13,7 @@ ROOT="$(cd "$DIR/../../" && pwd)"
 cd "$ROOT"
 
 echo "=== Building contracts to generate ABI JSON ==="
-for pkg in cloud subnet pod proxy dao; do
+for pkg in subnet proxy token; do
     echo "  -> $pkg"
     cargo wrevive build -p "$pkg" --quiet
 done
@@ -22,7 +22,7 @@ cd "$DIR/contracts"
 
 echo ""
 echo "=== Generating Go bindings ==="
-for contract in cloud subnet pod proxy dao; do
+for contract in subnet proxy token; do
     json="../../../target/$contract.json"
     if [[ -f "$json" ]]; then
         echo "  -> $contract"

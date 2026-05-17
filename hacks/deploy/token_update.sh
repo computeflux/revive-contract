@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # get shell path
 SOURCE="$0"
 while [ -h "$SOURCE"  ]; do
@@ -8,10 +9,7 @@ done
 DIR="$( cd -P "$( dirname "$SOURCE"  )" && pwd  )"
 
 cd "$DIR/../../"
-cargo wrevive build -p cloud
-
-# cd $DIR/contracts
-# go-ink-gen -json ../../../target/cloud.json
+cargo wrevive build -p token
 
 cd $DIR
-go test -run ^TestCloudUpdate$
+go test -run ^TestTokenUpdate$

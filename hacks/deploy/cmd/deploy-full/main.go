@@ -10,9 +10,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"wetee/test/contracts/cloud"
 	"wetee/test/contracts/proxy"
 	"wetee/test/contracts/subnet"
+	"wetee/test/contracts/token"
 
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	chain "github.com/wetee-dao/ink.go"
@@ -30,26 +30,11 @@ type NodeConfig struct {
 	Port  uint32 `json:"port"`
 }
 
-type WorkerConfig struct {
-	Name     string `json:"name"`
-	SS58     string `json:"ss58"`
-	Domain   string `json:"domain"`
-	Port     uint32 `json:"port"`
-	Level    byte   `json:"level"`
-	Region   uint32 `json:"region"`
-	Cpu      uint32 `json:"cpu"`
-	Memory   uint32 `json:"memory"`
-	Disk     uint32 `json:"disk"`
-	Gpu      uint32 `json:"gpu"`
-	Mortgage int64  `json:"mortgage"`
-}
-
 type GenesisConfig struct {
-	Secrets    []NodeConfig   `json:"secrets"`
-	BootNodes  []uint64       `json:"boot_nodes"`
-	Validators []uint64       `json:"validators"`
-	Region     string         `json:"region"`
-	Workers    []WorkerConfig `json:"workers"`
+	Secrets    []NodeConfig `json:"secrets"`
+	BootNodes  []uint64     `json:"boot_nodes"`
+	Validators []uint64     `json:"validators"`
+	Region     string       `json:"region"`
 }
 
 type EnvConfig struct {
@@ -132,42 +117,15 @@ func main() {
 
 	targetDir := filepath.Join(rootDir, "target")
 
-	// Upload and deploy pod implementation contract
-	podData, err := os.ReadFile(filepath.Join(targetDir, "pod.release.polkavm"))
-	if err != nil {
-		exitf("read pod code: %v", err)
-	}
-	podCodeHash, err := client.UploadInkCode(podData, &pk)
-	if err != nil {
-		exitf("upload pod code: %v", err)
-	}
-
-	// Deploy Pod implementation contract (standalone, Proxy will delegate_call to this)
-	podImplAddress, err := client.DeployContract(
-		util.InkCode{Existing: podCodeHash},
-		&pk,
-		types.NewU128(*big.NewInt(0)),
-		util.InkContractInput{
-			Selector: "0x00000000",
-			Args:     []any{},
-		},
-		util.NewSome(genSalt()),
-	)
-	if err != nil {
-		exitf("deploy pod impl: %v", err)
-	}
-	fmt.Println("pod impl address: ", podImplAddress.Hex())
-
 	// Deploy full system
 	subnetImplAddress, _ := deploySubnetContract(client, pk, targetDir)
-	cloudProxyAddress, _ := deployCloudContract(client, *subnetImplAddress, *podImplAddress, *podCodeHash, pk, targetDir)
+	tokenProxyAddress, _ := deployTokenContract(client, *subnetImplAddress, pk, targetDir)
 
 	initSubnet(client, pk, subnetImplAddress.Hex(), genesisCfg)
-	initWorker(client, pk, subnetImplAddress.Hex(), genesisCfg)
 
 	fmt.Println("========================================")
-	fmt.Println("subnet address (proxy2) => ", subnetImplAddress.Hex())
-	fmt.Println("cloud  address (proxy1) => ", cloudProxyAddress.Hex())
+	fmt.Println("subnet address (proxy) => ", subnetImplAddress.Hex())
+	fmt.Println("token  address (proxy) => ", tokenProxyAddress.Hex())
 	fmt.Println("========================================")
 }
 
@@ -223,14 +181,14 @@ func deploySubnetContract(client *chain.ChainClient, pk chain.Signer, targetDir 
 	return subnetProxyAddress, subnetContract
 }
 
-func deployCloudContract(client *chain.ChainClient, subnetAddress types.H160, podImplAddress types.H160, podCodeHash types.H256, pk chain.Signer, targetDir string) (*types.H160, *cloud.Cloud) {
-	data, err := os.ReadFile(filepath.Join(targetDir, "cloud.release.polkavm"))
+func deployTokenContract(client *chain.ChainClient, subnetAddress types.H160, pk chain.Signer, targetDir string) (*types.H160, *token.Token) {
+	data, err := os.ReadFile(filepath.Join(targetDir, "token.release.polkavm"))
 	if err != nil {
 		util.LogWithPurple("read file error", err)
 		panic(err)
 	}
 
-	res, err := cloud.DeployCloudWithNew(chain.DeployParams{
+	res, err := token.DeployTokenWithNew(chain.DeployParams{
 		Client: client,
 		Signer: &pk,
 		Code:   util.InkCode{Upload: &data},
@@ -240,14 +198,14 @@ func deployCloudContract(client *chain.ChainClient, subnetAddress types.H160, po
 		util.LogWithPurple("DeployContract", err)
 		panic(err)
 	}
-	fmt.Println("cloud address: ", res.Hex())
+	fmt.Println("token address: ", res.Hex())
 
 	proxyCode, err := os.ReadFile(filepath.Join(targetDir, "proxy.release.polkavm"))
 	if err != nil {
 		util.LogWithPurple("read proxy file error", err)
 		panic(err)
 	}
-	cloudProxyAddress, err := proxy.DeployProxyWithNew(*res, util.NewSome(pk.H160Address()), chain.DeployParams{
+	tokenProxyAddress, err := proxy.DeployProxyWithNew(*res, util.NewSome(pk.H160Address()), chain.DeployParams{
 		Client: client,
 		Signer: &pk,
 		Code:   util.InkCode{Upload: &proxyCode},
@@ -257,13 +215,15 @@ func deployCloudContract(client *chain.ChainClient, subnetAddress types.H160, po
 		util.LogWithPurple("DeployProxyWithNew", err)
 		panic(err)
 	}
-	fmt.Println("cloud proxy address: ", cloudProxyAddress.Hex())
+	fmt.Println("token proxy address: ", tokenProxyAddress.Hex())
 
-	cloudContract, err := cloud.InitCloudContract(client, cloudProxyAddress.Hex())
+	tokenContract, err := token.InitTokenContract(client, tokenProxyAddress.Hex())
 	if err != nil {
 		panic(err)
 	}
-	err = cloudContract.ExecInit(subnetAddress, podImplAddress, podCodeHash, chain.ExecParams{
+
+	// Init token: set owner
+	err = tokenContract.ExecInit(util.NewSome(pk.H160Address()), chain.ExecParams{
 		Signer:    &pk,
 		PayAmount: types.NewU128(*big.NewInt(0)),
 	})
@@ -271,7 +231,16 @@ func deployCloudContract(client *chain.ChainClient, subnetAddress types.H160, po
 		panic(err)
 	}
 
-	return cloudProxyAddress, cloudContract
+	// Set subnet address on token
+	err = tokenContract.ExecSetSubnet(subnetAddress, chain.ExecParams{
+		Signer:    &pk,
+		PayAmount: types.NewU128(*big.NewInt(0)),
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	return tokenProxyAddress, tokenContract
 }
 
 func initSubnet(client *chain.ChainClient, pk chain.Signer, subnetAddress string, cfg GenesisConfig) {
@@ -321,85 +290,6 @@ func initSubnet(client *chain.ChainClient, pk chain.Signer, subnetAddress string
 		err = subnetContract.ExecValidatorJoin(v, _call)
 		if err != nil {
 			panic(err)
-		}
-	}
-}
-
-func initWorker(client *chain.ChainClient, pk chain.Signer, subnetAddress string, cfg GenesisConfig) {
-	_call := chain.ExecParams{
-		Signer:    &pk,
-		PayAmount: types.NewU128(*big.NewInt(0)),
-	}
-
-	subnetContract, err := subnet.InitSubnetContract(client, subnetAddress)
-	if err != nil {
-		panic(err)
-	}
-
-	err = subnetContract.ExecSetRegion([]byte(cfg.Region), _call)
-	if err != nil {
-		panic(err)
-	}
-
-	err = subnetContract.ExecSetLevelPrice(0, subnet.RunPrice{
-		CpuPer:       1,
-		CvmCpuPer:    1,
-		MemoryPer:    1,
-		CvmMemoryPer: 1,
-		DiskPer:      1,
-		GpuPer:       1,
-	}, _call)
-	if err != nil {
-		panic(err)
-	}
-
-	name := []byte("T")
-	err = subnetContract.ExecSetAsset(subnet.AssetInfo{
-		Native: &name,
-	}, types.NewU256(*big.NewInt(1000)), chain.ExecParams{
-		Signer:    &pk,
-		PayAmount: types.NewU128(*big.NewInt(0)),
-	})
-	if err != nil {
-		panic(err)
-	}
-
-	for _, w := range cfg.Workers {
-		pubkey, err := model.PubKeyFromSS58(w.SS58)
-		if err != nil {
-			panic(fmt.Sprintf("invalid worker ss58 %s: %v", w.SS58, err))
-		}
-		err = subnetContract.ExecWorkerRegister(
-			[]byte(w.Name),
-			pubkey.AccountID(),
-			subnet.Ip{
-				Ipv4:   util.NewNone[uint32](),
-				Ipv6:   util.NewNone[types.U128](),
-				Domain: util.NewSome([]byte(w.Domain)),
-			},
-			w.Port,
-			w.Level,
-			w.Region,
-			_call,
-		)
-		if err != nil {
-			panic(err)
-		}
-
-		err = subnetContract.ExecWorkerMortgage(
-			0,
-			w.Cpu, w.Memory,
-			0, 0, // cvm_cpu, cvm_mem
-			w.Disk, w.Gpu, // disk, gpu
-			types.NewU256(*big.NewInt(w.Mortgage)),
-			chain.ExecParams{
-				Signer:    &pk,
-				PayAmount: types.NewU128(*big.NewInt(w.Mortgage)),
-			},
-		)
-		if err != nil {
-			fmt.Println("error:", err)
-			// panic(err)
 		}
 	}
 }
