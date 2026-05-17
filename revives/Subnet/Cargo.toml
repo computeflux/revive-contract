@@ -1,0 +1,34 @@
+[package]
+name = "subnet"
+version = "0.1.0"
+edition = "2024"
+description = "Subnet 合约 PolkaVM/wrevive 版本，供 PolkaVM 部署"
+
+[features]
+default = []
+# 作为依赖被引入时启用，禁止本 crate 的 global_allocator，避免与主合约冲突
+api = []
+
+[[bin]]
+name = "subnet"
+path = "src/contract.rs"
+
+[lib]
+name = "subnet"
+path = "src/contract.rs"
+doctest = false
+
+[dependencies]
+pvm-bump-allocator = { git = "https://github.com/paritytech/cargo-pvm-contract", branch = "main" }
+polkavm-derive = "0.31"
+alloy-core = { version = "1.5", default-features = false, features = ["sol-types"] }
+pallet-revive-uapi = { version = "0.10", default-features = false }
+parity-scale-codec = { version = "3", default-features = false, features = ["derive"] }
+pvm-contract-types = { git = "https://github.com/paritytech/cargo-pvm-contract", branch = "main" }
+wrevive-macro = { workspace = true }
+wrevive-api = { workspace = true, features = ["on_chain"] }
+primitives = { workspace = true }
+
+
+[dev-dependencies]
+wrevive-api = { workspace = true, features = ["off_chain"] }

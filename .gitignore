@@ -1,0 +1,14 @@
+# Ignore build artifacts from the local tests sub-crate.
+**/target/
+
+# Ignore backup files creates by cargo fmt.
+**/*.rs.bk
+
+**/nohup.out
+**/out/
+hacks/local-dev
+**/.key.*
+hacks/deploy/deploy-contract
+hacks/deploy/deploy-full
+hacks/deploy/gen-key
+hacks/deploy/upgrade-contract

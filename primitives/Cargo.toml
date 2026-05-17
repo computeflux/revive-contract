@@ -1,0 +1,8 @@
+[package]
+name = "primitives"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+parity-scale-codec = { version = "3", default-features = false, features = ["derive"] }
+wrevive-api = { workspace = true }

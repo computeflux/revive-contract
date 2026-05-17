@@ -1,0 +1,51 @@
+{
+  "url": "wss://asset-hub-paseo-rpc.n.dwellir.com",
+  "suri": "0x43c0defe545b31e6f64ee9c17b35c6444a8c3527f0c68160203717c51367512d",
+  "contracts": {
+    "subnet": "0x4ec58c127786d767fdd968ced12f30be5f9a4bac",
+    "cloud": "0x239a33348e8a698cee4eb06af3780dee2ea227e3"
+  },
+  "genesis": {
+    "secrets": [
+      {
+        "name": "node0",
+        "ss58": "5EC7yhh6XQwsFkZ8Y5DvF9S3FDLqekZH3UDat8h1GVgfJDGx",
+        "p_ss58": "5EoA4sqBZSMT9zntFN6KFPmnzfeExBsMk5rrGyMcyT71Vmh4",
+        "ip": "192.168.110.205",
+        "port": 30110
+      },
+      {
+        "name": "node1",
+        "ss58": "5EkxGjeEUc26BTb5mnL74NMK61Y2g6Bz6xUZYVCEMgobY45F",
+        "p_ss58": "5DqSrXbVGNyoUnMiyyoQQgaaZCB2whaYic58i6VRiFsWMk4g",
+        "ip": "192.168.110.205",
+        "port": 30120
+      },
+      {
+        "name": "node2",
+        "ss58": "5CkHHU3FVdqae42zV7fMHvze7735bP2CZFDmZXZteCjzx21M",
+        "p_ss58": "5HNCudE1YenyHrntQ4MmEuLuFWG7DHfyHkrj18eqrQEbU79j",
+        "ip": "192.168.110.205",
+        "port": 30130
+      }
+    ],
+    "boot_nodes": [0, 1, 2],
+    "validators": [1, 2],
+    "region": "defalut",
+    "workers": [
+      {
+        "name": "worker0",
+        "ss58": "5GSBfdb3PxME3XM4JrkFKAgHH77ADDWXUx6o8KGVmavLnZ44",
+        "domain": "xiaobai.asyou.me",
+        "port": 10000,
+        "level": 1,
+        "region": 0,
+        "cpu": 10000,
+        "memory": 10000,
+        "disk": 0,
+        "gpu": 0,
+        "mortgage": 10000000
+      }
+    ]
+  }
+}
