@@ -33,7 +33,7 @@ pub mod subnet {
     const EPOCH_SLOT: Storage<u32> = storage!(b"epoch_slot");
     const EPOCH: Storage<u32> = storage!(b"epoch");
     const LAST_EPOCH_BLOCK: Storage<BlockNumber> = storage!(b"last_epoch_block");
-    const SIDE_CHAIN_MULTI_KEY: Storage<Address> = storage!(b"side_chain_multi_key");
+    const TEE_CHAIN_MULTI_KEY: Storage<Address> = storage!(b"tee_chain_multi_key");
     const NEXT_REGION_ID: Storage<u32> = storage!(b"next_region_id");
     const NEXT_WORKER_ID: Storage<u64> = storage!(b"next_worker_id");
     const NEXT_SECRET_ID: Storage<u64> = storage!(b"next_secret_id");
@@ -47,7 +47,6 @@ pub mod subnet {
     const LEVEL_PRICES: Mapping<u8, RunPrice> = mapping!(b"level_prices");
     const ASSET_INFOS: Mapping<u32, AssetInfo> = mapping!(b"asset_infos");
     const ASSET_PRICES: Mapping<u32, U256> = mapping!(b"asset_prices");
-    const CLOUD_CONTRACT: Storage<Address> = storage!(b"cloud_contract");
     const MIN_MORTGAGE_AMOUNT: Storage<U256> = storage!(b"min_mortgage_amount");
     const LEVEL_MIN_MORTGAGES: Mapping<u8, U256> = mapping!(b"level_min_mortgages");
 
@@ -100,7 +99,7 @@ pub mod subnet {
         EPOCH_SLOT.set(&72000u32);
         EPOCH.set(&0u32);
         LAST_EPOCH_BLOCK.set(&0u32);
-        SIDE_CHAIN_MULTI_KEY.set(&Address::zero());
+        TEE_CHAIN_MULTI_KEY.set(&Address::zero());
         NEXT_REGION_ID.set(&0u32);
         NEXT_WORKER_ID.set(&0u64);
         NEXT_SECRET_ID.set(&0u64);
@@ -118,7 +117,7 @@ pub mod subnet {
     /// 任何人（只读查询）。
     ///
     /// # 返回值
-    /// - `EpochInfo`：包含 epoch 编号、epoch_slot、last_epoch_block、now、side_chain_pub 的结构体。
+    /// - `EpochInfo`：包含 epoch 编号、epoch_slot、last_epoch_block、now、tee_chain_pub 的结构体。
     #[revive(message)]
     pub fn epoch_info() -> EpochInfo {
         let now = env().now();
@@ -127,7 +126,7 @@ pub mod subnet {
             epoch_slot: EPOCH_SLOT.get().unwrap_or(72000),
             last_epoch_block: LAST_EPOCH_BLOCK.get().unwrap_or(0),
             now,
-            side_chain_pub: SIDE_CHAIN_MULTI_KEY.get().unwrap_or(Address::zero()),
+            tee_chain_pub: TEE_CHAIN_MULTI_KEY.get().unwrap_or(Address::zero()),
         }
     }
 
@@ -161,8 +160,8 @@ pub mod subnet {
     /// # 返回值
     /// - `Address`：侧链多签地址，若未设置则返回零地址。
     #[revive(message)]
-    pub fn side_chain_key() -> Address {
-        SIDE_CHAIN_MULTI_KEY.get().unwrap_or(Address::zero())
+    pub fn tee_chain_key() -> Address {
+        TEE_CHAIN_MULTI_KEY.get().unwrap_or(Address::zero())
     }
 
     /// 注册一个新的区域（Region）。
@@ -307,38 +306,6 @@ pub mod subnet {
         let info = ASSET_INFOS.get(&id)?;
         let price = ASSET_PRICES.get(&id)?;
         Some((info, price))
-    }
-
-    /// 设置 Cloud 合约地址。
-    ///
-    /// Cloud 合约用于发起对 Worker 抵押的罚没（slash）操作。
-    ///
-    /// # 调用权限
-    /// 仅治理合约（gov）可调用。
-    ///
-    /// # 参数
-    /// - `addr`：Cloud 合约的地址。
-    ///
-    /// # 返回值
-    /// - `Ok(())`：设置成功。
-    /// - `Err(Error::MustCallByMainContract)`：调用者不是治理合约。
-    #[revive(message, write)]
-    pub fn set_cloud_contract(addr: Address) -> Result<(), Error> {
-        ensure_from_gov()?;
-        CLOUD_CONTRACT.set(&addr);
-        Ok(())
-    }
-
-    /// 查询当前设置的 Cloud 合约地址。
-    ///
-    /// # 调用权限
-    /// 任何人（只读查询）。
-    ///
-    /// # 返回值
-    /// - `Address`：Cloud 合约地址，若未设置则返回零地址。
-    #[revive(message)]
-    pub fn cloud_contract() -> Address {
-        CLOUD_CONTRACT.get().unwrap_or(Address::zero())
     }
 
     /// 设置全局最小抵押金额。
@@ -493,7 +460,15 @@ pub mod subnet {
                 total_gpu = total_gpu.saturating_add(dep.gpu);
             }
         }
-        (total, total_cpu, total_mem, total_cvm_cpu, total_cvm_mem, total_disk, total_gpu)
+        (
+            total,
+            total_cpu,
+            total_mem,
+            total_cvm_cpu,
+            total_cvm_mem,
+            total_disk,
+            total_gpu,
+        )
     }
 
     #[revive(message)]
@@ -534,7 +509,7 @@ pub mod subnet {
         amount: U256,
         to: Address,
     ) -> Result<(), Error> {
-        ensure_from_cloud()?;
+        ensure_from_gov()?;
 
         let mut remaining = amount;
         let list = WORKER_MORTGAGES.list_all(&worker_id);
@@ -884,7 +859,7 @@ pub mod subnet {
     /// 并校验 Worker 是否至少抵押了一种资源（CPU、内存、磁盘、GPU 等）。
     ///
     /// # 调用权限
-    /// 仅侧链多签地址（side_chain）可调用。
+    /// 仅侧链多签地址（tee_chain）可调用。
     ///
     /// # 参数
     /// - `id`：要启动的 Worker ID。
@@ -892,12 +867,12 @@ pub mod subnet {
     /// # 返回值
     /// - `Ok(())`：启动成功。
     /// - `Err(Error::WorkerNotExist)`：Worker 不存在。
-    /// - `Err(Error::InvalidSideChainCaller)`：调用者不是侧链多签地址。
+    /// - `Err(Error::InvalidTeeChainCaller)`：调用者不是侧链多签地址。
     /// - `Err(Error::MortgageNotEnough)`：抵押金额不足。
     /// - `Err(Error::ResourceNotEnough)`：未抵押任何资源。
     #[revive(message, write)]
     pub fn worker_start(id: NodeID) -> Result<(), Error> {
-        ensure_from_side_chain()?;
+        ensure_from_tee_chain()?;
         let worker = WORKERS.get(&id).ok_or(Error::WorkerNotExist)?;
 
         // 合并一次遍历计算抵押总额和资源总量，避免重复迭代
@@ -1077,8 +1052,10 @@ pub mod subnet {
         p2p_id: AccountId,
         ip: Ip,
         port: u32,
+        bls: Bytes,
     ) -> Result<NodeID, Error> {
         let caller = env().caller();
+        ensure!(!bls.is_empty(), Error::InvalidBlsKey);
         let now = env().block_number();
         let node = SecretNode {
             name,
@@ -1090,6 +1067,7 @@ pub mod subnet {
             ip,
             port,
             status: 0,
+            bls,
         };
         let id = NEXT_SECRET_ID.get().unwrap_or(0);
         let next = id.checked_add(1).ok_or(Error::NodeNotExist)?;
@@ -1328,7 +1306,7 @@ pub mod subnet {
     ///
     /// # 返回值
     /// - `Ok(())`：epoch 切换成功。
-    /// - `Err(Error::InvalidSideChainCaller)`：调用者不是已记录的侧链多签地址。
+    /// - `Err(Error::InvalidTeeChainCaller)`：调用者不是已记录的侧链多签地址。
     /// - `Err(Error::EpochNotExpired)`：当前 epoch 尚未到期。
     #[revive(message, write)]
     pub fn set_next_epoch(_node_id: u64) -> Result<(), Error> {
@@ -1337,12 +1315,12 @@ pub mod subnet {
         let last_epoch = LAST_EPOCH_BLOCK.get().unwrap_or(0);
 
         // 首次调用将调用者设为侧链多签地址，后续仅该地址可调用
-        // First call sets caller as side-chain multi-sig address; subsequent calls require this address
-        let key = SIDE_CHAIN_MULTI_KEY.get().unwrap_or(Address::zero());
+        // First call sets caller as tee-chain multi-sig address; subsequent calls require this address
+        let key = TEE_CHAIN_MULTI_KEY.get().unwrap_or(Address::zero());
         if key == Address::zero() {
-            SIDE_CHAIN_MULTI_KEY.set(&caller);
+            TEE_CHAIN_MULTI_KEY.set(&caller);
         } else {
-            ensure!(caller == key, Error::InvalidSideChainCaller);
+            ensure!(caller == key, Error::InvalidTeeChainCaller);
         }
 
         // 校验当前 epoch 是否已到期（距离上次切换达到 epoch_slot 个区块）
@@ -1448,17 +1426,10 @@ pub mod subnet {
         Ok(())
     }
 
-    fn ensure_from_cloud() -> Result<(), Error> {
+    fn ensure_from_tee_chain() -> Result<(), Error> {
         let caller = env().caller();
-        let cloud = CLOUD_CONTRACT.get().unwrap_or(Address::zero());
-        ensure!(caller == cloud, Error::MustCallByMainContract);
-        Ok(())
-    }
-
-    fn ensure_from_side_chain() -> Result<(), Error> {
-        let caller = env().caller();
-        let key = SIDE_CHAIN_MULTI_KEY.get().unwrap_or(Address::zero());
-        ensure!(caller == key, Error::InvalidSideChainCaller);
+        let key = TEE_CHAIN_MULTI_KEY.get().unwrap_or(Address::zero());
+        ensure!(caller == key, Error::InvalidTeeChainCaller);
         Ok(())
     }
 

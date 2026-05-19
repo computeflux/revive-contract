@@ -29,7 +29,7 @@ fn deploy_and_epoch_info() {
     let info = subnet::epoch_info();
     assert_eq!(info.epoch, 0);
     assert_eq!(info.epoch_slot, 72000);
-    assert_eq!(subnet::side_chain_key(), Address::zero());
+    assert_eq!(subnet::tee_chain_key(), Address::zero());
 }
 
 #[test]
@@ -41,7 +41,7 @@ fn init_sets_gov_and_is_idempotent() {
     });
     let _ = subnet::new();
     subnet::init().unwrap();
-    assert_eq!(subnet::side_chain_key(), Address::zero());
+    assert_eq!(subnet::tee_chain_key(), Address::zero());
     // second init is no-op
     subnet::init().unwrap();
 }
@@ -322,6 +322,7 @@ fn secret_register_and_secrets() {
         account_id_from_u8(11),
         default_ip(),
         30110,
+        vec![],
     )
     .unwrap();
     assert_eq!(id, 0);
@@ -342,6 +343,7 @@ fn secret_register_two_then_secrets() {
         account_id_from_u8(11),
         default_ip(),
         30110,
+        vec![],
     )
     .unwrap();
     with_engine(|e| e.set_caller([21u8; 20]));
@@ -351,6 +353,7 @@ fn secret_register_two_then_secrets() {
         account_id_from_u8(13),
         default_ip(),
         30120,
+        vec![],
     )
     .unwrap();
     let list = subnet::secrets();
@@ -367,6 +370,7 @@ fn secret_update_by_owner() {
         account_id_from_u8(11),
         default_ip(),
         30110,
+        vec![],
     )
     .unwrap();
     let _ = subnet::secret_update(id, b"new".to_vec(), default_ip(), 30111);
@@ -385,6 +389,7 @@ fn secret_deposit_by_owner() {
         account_id_from_u8(11),
         default_ip(),
         30110,
+        vec![],
     )
     .unwrap();
     let _ = subnet::secret_deposit(id, U256::from(500u64));
@@ -403,6 +408,7 @@ fn validator_join_only_by_gov() {
         account_id_from_u8(11),
         default_ip(),
         30110,
+        vec![],
     )
     .unwrap();
     with_engine(|e| e.set_caller(gov_caller()));
@@ -423,6 +429,7 @@ fn validator_join_non_gov_fails() {
         account_id_from_u8(11),
         default_ip(),
         30110,
+        vec![],
     )
     .unwrap();
     with_engine(|e| e.set_caller([99u8; 20]));
@@ -448,6 +455,7 @@ fn validator_delete_only_by_gov() {
         account_id_from_u8(11),
         default_ip(),
         30110,
+        vec![],
     )
     .unwrap();
     with_engine(|e| e.set_caller(gov_caller()));
@@ -468,6 +476,7 @@ fn validators_after_first_secret_register() {
         account_id_from_u8(11),
         default_ip(),
         30110,
+        vec![],
     )
     .unwrap();
     let v = subnet::validators();
@@ -492,7 +501,7 @@ fn worker_start_only_by_side_chain_fails() {
     .unwrap();
     with_engine(|e| e.set_caller([99u8; 20]));
     let res = subnet::worker_start(wid);
-    assert_eq!(res, Err(Error::InvalidSideChainCaller));
+    assert_eq!(res, Err(Error::InvalidTeeChainCaller));
 }
 
 #[test]

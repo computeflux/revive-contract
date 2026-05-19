@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -23,11 +24,12 @@ import (
 )
 
 type NodeConfig struct {
-	Name  string `json:"name"`
-	SS58  string `json:"ss58"`
-	PSS58 string `json:"p_ss58"`
-	Ip    string `json:"ip"`
-	Port  uint32 `json:"port"`
+	Name            string `json:"name"`
+	SS58            string `json:"ss58"`
+	PSS58           string `json:"p_ss58"`
+	Ip              string `json:"ip"`
+	Port            uint32 `json:"port"`
+	BlsValidatorKey string `json:"bls_validator_key"`
 }
 
 type GenesisConfig struct {
@@ -266,6 +268,8 @@ func initSubnet(client *chain.ChainClient, pk chain.Signer, subnetAddress string
 		if err != nil {
 			panic(fmt.Sprintf("invalid ip %s: %v", node.Ip, err))
 		}
+		// Decode BLS validator key from hex
+		blsKey, _ := hex.DecodeString(node.BlsValidatorKey)
 		err = subnetContract.ExecSecretRegister(
 			[]byte(node.Name),
 			v.AccountID(),
@@ -276,6 +280,7 @@ func initSubnet(client *chain.ChainClient, pk chain.Signer, subnetAddress string
 				Domain: util.NewNone[[]byte](),
 			},
 			node.Port,
+			blsKey,
 			_call,
 		)
 		fmt.Printf("%s register result: %v\n", node.Name, err)

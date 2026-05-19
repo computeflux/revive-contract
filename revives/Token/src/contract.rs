@@ -1,12 +1,13 @@
 //! Token 合约 — PolkaVM/wrevive 版本
 //! 积分充值/提现合约，从 Solidity Token.sol 迁移。
 //!
+//! 积分规则 | Point rules:
+//!   points = value * RATE / TOKEN_UNIT  (Planck → 积分)
+//!   eth    = points * TOKEN_UNIT / RATE  (积分 → Planck)
+//!   例: DOT=$4, RATE=4000, TOKEN_UNIT=10^15 → 1 DOT = 4000 积分, 1000 积分 ≈ $1
+//!
 //! Subnet 合约作为管理员。用户充值直接调用，提现必须由 Subnet 合约调用。
 //! 配合 Proxy 合约实现 UUPS 可升级模式。
-//!
-//! 双重编码支持：
-//! - SCALE 编码（默认）：与 wrevive 生态兼容
-//! - Sol ABI 编码（_sol 后缀）：与 MetaMask / Remix / ethers.js 兼容
 
 #![cfg_attr(not(test), no_std)]
 #![cfg_attr(not(test), no_main)]
@@ -21,69 +22,76 @@ mod errors;
 #[cfg(test)]
 mod tests;
 
+use parity_scale_codec::Encode;
 use wrevive_api::*;
 use wrevive_macro::{mapping, revive_contract, storage};
 
 pub use errors::Error;
 pub use primitives::ensure;
 
+/// Relay 事件记录 | Relay event record
+#[derive(Clone, Encode, Decode, Debug)]
+pub struct EventRecord {
+    pub target_contract: Vec<u8>,
+    pub event_type: Vec<u8>,
+    pub event_data: Vec<u8>,
+}
+
 #[revive_contract]
 pub mod token {
     use super::*;
-    use crate::{ensure, Error};
+    use crate::{Error, EventRecord, ensure};
 
-    /// 合约 owner 地址
     const OWNER: Storage<Address> = storage!(b"owner");
-    /// Subnet 合约地址（仅该地址可调用 withdraw）
     const SUBNET: Storage<Address> = storage!(b"subnet");
-    /// 兑换率：1 ETH = rate 积分
+    /// 兑换率: 1 DOT = RATE 积分 | RATE points per 1 DOT
     const RATE: Storage<U256> = storage!(b"rate");
-    /// 用户余额：eth 充值量
+    /// 主链币最小单位 (DOT=10^15 Planck, ETH=10^18 Wei)
+    const TOKEN_UNIT: Storage<U256> = storage!(b"token_unit");
+    /// 用户积分余额 (1 积分 ≈ 1/1000 USD)
     const BALANCES: Mapping<Address, U256> = mapping!(b"balances");
+    /// 全局事件 nonce
+    const EVENT_NONCE: Storage<u64> = storage!(b"event_nonce");
+    /// 事件存储: nonce → EventRecord
+    const EVENTS: Mapping<u64, EventRecord> = mapping!(b"events");
 
     // ========== 构造函数 ==========
-
-    /// Token 合约构造函数。
-    ///
-    /// 仅分配存储，不做初始化。初始化逻辑由 `init` 完成（代理模式）。
     #[revive(constructor)]
     pub fn new() -> Result<(), Error> {
         Ok(())
     }
 
     // ========== 初始化 ==========
-
-    /// 代理初始化（替代 constructor）。
-    ///
-    /// - `owner`：合约管理员地址。传 `None` 则使用 caller。
-    ///
-    /// # 调用权限
-    /// 任何人（仅在首次调用时有效，重复调用无操作）。
     #[revive(message, write)]
     pub fn init(owner: Option<Address>) -> Result<(), Error> {
-        // 已初始化则跳过
         if OWNER.get().is_some() {
             return Ok(());
         }
         let api = env();
         let owner_addr = owner.unwrap_or(api.caller());
         OWNER.set(&owner_addr);
-        RATE.set(&U256::from(1000u64));
+        if RATE.get().is_none() {
+            RATE.set(&U256::from(1u64));
+        } // $4/DOT → $1=1000pt
+        if TOKEN_UNIT.get().is_none() {
+            TOKEN_UNIT.set(&U256::from(10_000_000_000u64));
+        } // DOT: 10^15 Planck
+        if EVENT_NONCE.get().is_none() {
+            EVENT_NONCE.set(&0u64);
+        }
         Ok(())
     }
 
     // ========== 配置 ==========
-
-    /// 设置 Subnet 合约地址（仅 owner）
     #[revive(message, write)]
     pub fn set_subnet(subnet_addr: Address) -> Result<(), Error> {
         ensure_owner()?;
         ensure!(subnet_addr != Address::zero(), Error::ZeroAddress);
         SUBNET.set(&subnet_addr);
+        emit_event(b"gateway", b"SetSubnet", Encode::encode(&subnet_addr));
         Ok(())
     }
 
-    /// 设置兑换率（仅 owner）
     #[revive(message, write)]
     pub fn set_rate(new_rate: U256) -> Result<(), Error> {
         ensure_owner()?;
@@ -92,102 +100,125 @@ pub mod token {
             Error::AmountMustBeGreaterThanZero
         );
         RATE.set(&new_rate);
+        emit_event(b"gateway", b"SetRate", Encode::encode(&new_rate));
         Ok(())
     }
 
-    // ========== 充值/提现 (SCALE 编码 — wrevive 生态) ==========
+    #[revive(message, write)]
+    pub fn set_token_unit(unit: U256) -> Result<(), Error> {
+        ensure_owner()?;
+        ensure!(unit > U256::from(0u64), Error::AmountMustBeGreaterThanZero);
+        TOKEN_UNIT.set(&unit);
+        emit_event(b"gateway", b"SetTokenUnit", Encode::encode(&unit));
+        Ok(())
+    }
 
-    /// 用户充值 ETH 换取积分。
-    ///
-    /// 调用时需附带 ETH（通过 `transferred_value`）。
+    // ========== 充值/提现 (SCALE) ==========
     #[revive(message, write, payable)]
     pub fn recharge() -> Result<U256, Error> {
         recharge_impl()
     }
 
-    /// 提现（仅 Subnet 合约可调用）。
     #[revive(message, write)]
-    pub fn withdraw(user: Address, eth_amount: U256) -> Result<(), Error> {
-        withdraw_impl(user, eth_amount)
+    pub fn withdraw(user: Address, points: U256) -> Result<(), Error> {
+        withdraw_impl(user, points)
     }
 
-    // ========== 充值/提现 (Sol ABI 编码 — MetaMask / Remix 兼容) ==========
-
-    /// Solidity ABI 充值。选择器 = keccak256("recharge()") = 0x632c147b
+    // ========== 充值/提现 (Sol ABI) ==========
     #[revive(message, write, payable, sol)]
     pub fn recharge_sol() -> Result<U256, Error> {
         recharge_impl()
     }
 
-    /// Solidity ABI 提现。选择器 = keccak256("withdraw(address,uint256)") = 0xf3fef3a3
     #[revive(message, write, sol)]
-    pub fn withdraw_sol(user: Address, eth_amount: U256) -> Result<(), Error> {
-        withdraw_impl(user, eth_amount)
+    pub fn withdraw_sol(user: Address, points: U256) -> Result<(), Error> {
+        withdraw_impl(user, points)
     }
 
-    // ========== 查询 (SCALE 编码) ==========
+    // ========== Relay 查询 ==========
+    #[revive(message)]
+    pub fn get_latest_nonce() -> u64 {
+        EVENT_NONCE.get().unwrap_or(0u64)
+    }
 
-    /// 查询用户余额（ETH 充值量）。
+    #[revive(message)]
+    pub fn get_events(from: u64, to: u64) -> Vec<EventRecord> {
+        let end = if to == 0 {
+            EVENT_NONCE.get().unwrap_or(0u64)
+        } else {
+            to
+        };
+        let mut events = Vec::new();
+        for n in from..=end {
+            if let Some(ev) = EVENTS.get(&n) {
+                events.push(ev);
+            }
+        }
+        events
+    }
+
+    #[revive(message)]
+    pub fn get_event(nonce: u64) -> Option<EventRecord> {
+        EVENTS.get(&nonce)
+    }
+
+    // ========== 查询 (SCALE) ==========
     #[revive(message)]
     pub fn get_balance(user: Address) -> U256 {
         BALANCES.get(&user).unwrap_or(U256::from(0u64))
     }
 
-    /// 将 ETH 数量换算为积分数量。
+    /// DOT → 积分换算 (只读) | DOT → points conversion (read-only)
     #[revive(message)]
-    pub fn to_points(eth_amount: U256) -> U256 {
-        let rate = RATE.get().unwrap_or(U256::from(1000u64));
-        eth_amount * rate
+    pub fn to_points(dot_amount: U256) -> U256 {
+        let rate = RATE.get().unwrap_or(U256::from(1u64));
+        let token_unit = TOKEN_UNIT.get().unwrap_or(U256::from(10_000_000_000u64));
+        dot_amount * rate / token_unit
     }
 
-    /// 查询当前兑换率。
     #[revive(message)]
     pub fn get_rate() -> U256 {
-        RATE.get().unwrap_or(U256::from(1000u64))
+        RATE.get().unwrap_or(U256::from(1u64))
     }
 
-    /// 查询 Subnet 合约地址。
+    #[revive(message)]
+    pub fn get_token_unit() -> U256 {
+        TOKEN_UNIT.get().unwrap_or(U256::from(10_000_000_000u64))
+    }
+
     #[revive(message)]
     pub fn get_subnet() -> Address {
         SUBNET.get().unwrap_or(Address::zero())
     }
 
-    /// 查询合约 owner 地址。
     #[revive(message)]
     pub fn owner() -> Address {
         OWNER.get().unwrap_or(Address::zero())
     }
 
-    // ========== 查询 (Sol ABI 编码 — MetaMask / Remix 兼容) ==========
-
-    /// Sol ABI 查询余额。选择器 = keccak256("get_balance(address)") = 0x1e279a37
+    // ========== 查询 (Sol ABI) ==========
     #[revive(message, sol)]
     pub fn get_balance_sol(user: Address) -> U256 {
         BALANCES.get(&user).unwrap_or(U256::from(0u64))
     }
 
-    /// Sol ABI 积分换算。选择器 = keccak256("to_points(uint256)") = 0x3c97b09a
     #[revive(message, sol)]
-    pub fn to_points_sol(eth_amount: U256) -> U256 {
-        let rate = RATE.get().unwrap_or(U256::from(1000u64));
-        eth_amount * rate
+    pub fn to_points_sol(dot_amount: U256) -> U256 {
+        let rate = RATE.get().unwrap_or(U256::from(1u64));
+        dot_amount * rate
     }
 
-    /// Sol ABI 查询兑换率。选择器 = keccak256("get_rate()") = 0x533178e5
     #[revive(message, sol)]
     pub fn get_rate_sol() -> U256 {
-        RATE.get().unwrap_or(U256::from(1000u64))
+        RATE.get().unwrap_or(U256::from(1u64))
     }
 
-    /// Sol ABI 查询 owner。选择器 = keccak256("owner()") = 0x8da5cb5b（OpenZeppelin Ownable 标准）
     #[revive(message, sol)]
     pub fn owner_sol() -> Address {
         OWNER.get().unwrap_or(Address::zero())
     }
 
     // ========== 管理 ==========
-
-    /// 紧急提现：将合约内所有 ETH 转给 owner。
     #[revive(message, write)]
     pub fn emergency_withdraw() -> Result<(), Error> {
         ensure_owner()?;
@@ -197,64 +228,97 @@ pub mod token {
             let owner_addr = OWNER.get().unwrap_or(Address::zero());
             api.transfer(&owner_addr, &contract_balance)
                 .map_err(|_| Error::TransferFailed)?;
+            emit_event(
+                b"gateway",
+                b"EmergencyWithdraw",
+                Encode::encode(&contract_balance),
+            );
         }
         Ok(())
     }
 
     // ========== 默认充值（fallback） ==========
-
-    /// receive() 等价：直接向合约转账 ETH 即视为充值。
     #[revive(fallback, payable)]
     pub fn fallback() {
         let api = env();
-        let caller = api.caller();
         let value = api.value_transferred();
-
         if value > U256::from(0u64) {
+            let points = value_to_points(value);
+            let caller = api.caller();
             let current = BALANCES.get(&caller).unwrap_or(U256::from(0u64));
-            BALANCES.set(&caller, &(current + value));
+            BALANCES.set(&caller, &(current + points));
+            emit_event(b"gateway", b"Recharge", Encode::encode(&(caller, points)));
         }
     }
 
     // ========== 内部实现 ==========
-
     fn recharge_impl() -> Result<U256, Error> {
         let api = env();
-        let caller = api.caller();
         let value = api.value_transferred();
         ensure!(value > U256::from(0u64), Error::AmountMustBeGreaterThanZero);
-
-        let rate = RATE.get().unwrap_or(U256::from(1000u64));
-        let points_amount = value * rate;
-
+        let points = value_to_points(value);
+        ensure!(
+            points > U256::from(0u64),
+            Error::AmountMustBeGreaterThanZero
+        );
+        let caller = api.caller();
         let current = BALANCES.get(&caller).unwrap_or(U256::from(0u64));
-        BALANCES.set(&caller, &(current + value));
-
-        Ok(points_amount)
+        BALANCES.set(&caller, &(current + points));
+        emit_event(b"gateway", b"Recharge", Encode::encode(&(caller, points)));
+        Ok(points)
     }
 
-    fn withdraw_impl(user: Address, eth_amount: U256) -> Result<(), Error> {
+    fn withdraw_impl(user: Address, points: U256) -> Result<(), Error> {
         ensure_subnet()?;
+        ensure!(
+            points > U256::from(0u64),
+            Error::AmountMustBeGreaterThanZero
+        );
+        let balance = BALANCES.get(&user).unwrap_or(U256::from(0u64));
+        ensure!(balance >= points, Error::InsufficientBalance);
+        let eth_amount = points_to_value(points);
         ensure!(
             eth_amount > U256::from(0u64),
             Error::AmountMustBeGreaterThanZero
         );
-
-        let balance = BALANCES.get(&user).unwrap_or(U256::from(0u64));
-        ensure!(balance >= eth_amount, Error::InsufficientBalance);
-
-        BALANCES.set(&user, &(balance - eth_amount));
-
-        let api = env();
-        api.transfer(&user, &eth_amount)
+        BALANCES.set(&user, &(balance - points));
+        env()
+            .transfer(&user, &eth_amount)
             .map_err(|_| Error::TransferFailed)?;
-
+        emit_event(b"gateway", b"Withdraw", Encode::encode(&(user, points)));
         Ok(())
     }
 
-    // ========== 内部辅助 ==========
+    // ========== 积分换算 ==========
+    /// Planck → 积分: value * RATE / TOKEN_UNIT
+    fn value_to_points(value: U256) -> U256 {
+        let rate = RATE.get().unwrap_or(U256::from(1u64));
+        let unit = TOKEN_UNIT.get().unwrap_or(U256::from(10_000_000_000u64));
+        value * rate / unit
+    }
 
-    /// 确保调用者为 Subnet 合约。
+    /// 积分 → Planck: points * TOKEN_UNIT / RATE
+    fn points_to_value(points: U256) -> U256 {
+        let rate = RATE.get().unwrap_or(U256::from(1u64));
+        let unit = TOKEN_UNIT.get().unwrap_or(U256::from(10_000_000_000u64));
+        points * unit / rate
+    }
+
+    // ========== Relay 内部 ==========
+    fn emit_event(target_contract: &[u8], event_type: &[u8], event_data: Vec<u8>) {
+        let nonce = EVENT_NONCE.get().unwrap_or(0u64) + 1;
+        EVENT_NONCE.set(&nonce);
+        EVENTS.set(
+            &nonce,
+            &EventRecord {
+                target_contract: target_contract.to_vec(),
+                event_type: event_type.to_vec(),
+                event_data,
+            },
+        );
+    }
+
+    // ========== 内部辅助 ==========
     fn ensure_subnet() -> Result<(), Error> {
         let caller = env().caller();
         let subnet = SUBNET.get().unwrap_or(Address::zero());
@@ -262,7 +326,6 @@ pub mod token {
         Ok(())
     }
 
-    /// 确保调用者为合约 owner。
     fn ensure_owner() -> Result<(), Error> {
         let caller = env().caller();
         let owner = OWNER.get().unwrap_or(Address::zero());

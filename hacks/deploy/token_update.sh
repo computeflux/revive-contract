@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# get shell path
+# Usage: ./token_update.sh [local|test|main]  (default: local)
 SOURCE="$0"
 while [ -h "$SOURCE"  ]; do
     DIR="$( cd -P "$( dirname "$SOURCE"  )" && pwd  )"
@@ -8,8 +8,16 @@ while [ -h "$SOURCE"  ]; do
 done
 DIR="$( cd -P "$( dirname "$SOURCE"  )" && pwd  )"
 
+ENV="${1:-local}"
+CONFIG="$DIR/configs/${ENV}.json"
+
+if [ ! -f "$CONFIG" ]; then
+    echo "Config not found: $CONFIG"
+    exit 1
+fi
+
 cd "$DIR/../../"
 cargo wrevive build -p token
 
 cd $DIR
-go test -run ^TestTokenUpdate$
+go test -run ^TestTokenUpdate$ -args -env="$ENV"

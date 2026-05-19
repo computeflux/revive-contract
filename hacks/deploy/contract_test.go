@@ -2,9 +2,12 @@ package contracts
 
 import (
 	"crypto/rand"
+	"encoding/json"
+	"flag"
 	"fmt"
 	"math/big"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"wetee/test/contracts/proxy"
@@ -17,213 +20,151 @@ import (
 	"github.com/wetee-dao/ink.go/util"
 )
 
-func TestTokenUpdate(t *testing.T) {
-	client, err := chain.InitClient([]string{TestChainUrl}, true)
-	if err != nil {
-		panic(err)
-	}
+// Config 对应 configs/<env>.json
+type Config struct {
+	URL       string `json:"url"`
+	Suri      string `json:"suri"`
+	Contracts struct {
+		Subnet string `json:"subnet"`
+		Token  string `json:"token"`
+	} `json:"contracts"`
+}
 
-	pk, err := chain.Sr25519PairFromSecret("//Alice", 42)
+var env = flag.String("env", "test", "environment: local|test|main")
+
+func loadConfig(t *testing.T) *Config {
+	t.Helper()
+	configPath := filepath.Join("configs", *env+".json")
+	data, err := os.ReadFile(configPath)
 	if err != nil {
-		util.LogWithPurple("Sr25519PairFromSecret", err)
-		panic(err)
+		t.Fatalf("read config %s: %v", configPath, err)
 	}
+	var cfg Config
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		t.Fatalf("parse config: %v", err)
+	}
+	return &cfg
+}
+
+func newClient(t *testing.T, cfg *Config) *chain.ChainClient {
+	t.Helper()
+	client, err := chain.InitClient([]string{cfg.URL}, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return client
+}
+
+func newSigner(t *testing.T, cfg *Config) chain.SignerType {
+	t.Helper()
+	pk, err := chain.Sr25519PairFromSecret(cfg.Suri, 42)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return &pk
+}
+
+func TestTokenUpdate(t *testing.T) {
+	cfg := loadConfig(t)
+	client := newClient(t, cfg)
+	pk := newSigner(t, cfg)
 
 	tokenData, err := os.ReadFile("../../target/token.release.polkavm")
 	if err != nil {
-		util.LogWithPurple("read file error", err)
-		panic(err)
+		t.Fatal(err)
 	}
 
 	salt := genSalt()
 	res, err := token.DeployTokenWithNew(chain.DeployParams{
 		Client: client,
-		Signer: &pk,
+		Signer: pk,
 		Code:   util.InkCode{Upload: &tokenData},
 		Salt:   util.NewSome(salt),
 	})
 	if err != nil {
-		util.LogWithPurple("DeployTokenWithNew", err)
-		panic(err)
+		t.Fatal(err)
 	}
-	fmt.Println("token address: ", res.Hex())
+	fmt.Println("token address:", res.Hex())
 
-	tokenIns, err := proxy.InitProxyContract(client, TokenAddress)
+	tokenIns, err := proxy.InitProxyContract(client, cfg.Contracts.Token)
 	if err != nil {
-		util.LogWithPurple("InitTokenContract", err)
-		panic(err)
+		t.Fatal(err)
 	}
 
 	err = tokenIns.ExecUpgrade(*res, chain.ExecParams{
-		Signer:    &pk,
+		Signer:    pk,
 		PayAmount: types.NewU128(*big.NewInt(0)),
 	})
 	if err != nil {
-		util.LogWithPurple("ExecUpgrade", err)
-		panic(err)
+		t.Fatal(err)
 	}
-
-	fmt.Println("new token address: ", res.Hex())
-	fmt.Println("proxy address: ", tokenIns.ContractAddress().Hex())
+	fmt.Println("new token address:", res.Hex())
+	fmt.Println("proxy address:", tokenIns.ContractAddress().Hex())
 }
 
 func TestSubnetUpdate(t *testing.T) {
-	client, err := chain.InitClient([]string{TestChainUrl}, true)
-	if err != nil {
-		panic(err)
-	}
-
-	pk, err := chain.Sr25519PairFromSecret("//Alice", 42)
-	if err != nil {
-		util.LogWithPurple("Sr25519PairFromSecret", err)
-		panic(err)
-	}
+	cfg := loadConfig(t)
+	client := newClient(t, cfg)
+	pk := newSigner(t, cfg)
 
 	netData, err := os.ReadFile("../../target/subnet.release.polkavm")
 	if err != nil {
-		util.LogWithPurple("read file error", err)
-		panic(err)
+		t.Fatal(err)
 	}
 
 	salt := genSalt()
 	res, err := subnet.DeploySubnetWithNew(chain.DeployParams{
 		Client: client,
-		Signer: &pk,
+		Signer: pk,
 		Code:   util.InkCode{Upload: &netData},
 		Salt:   util.NewSome(salt),
 	})
 	if err != nil {
-		util.LogWithPurple("DeploySubnetWithNew", err)
-		panic(err)
+		t.Fatal(err)
 	}
 
-	subnetIns, err := proxy.InitProxyContract(client, SubnetAddress)
+	subnetIns, err := proxy.InitProxyContract(client, cfg.Contracts.Subnet)
 	if err != nil {
-		util.LogWithPurple("InitSubnetContract", err)
-		panic(err)
+		t.Fatal(err)
 	}
 
 	err = subnetIns.ExecUpgrade(*res, chain.ExecParams{
-		Signer:    &pk,
+		Signer:    pk,
 		PayAmount: types.NewU128(*big.NewInt(0)),
 	})
 	if err != nil {
-		util.LogWithPurple("ExecUpgrade", err)
-		panic(err)
+		t.Fatal(err)
 	}
-
-	fmt.Println("new subnet address: ", res.Hex())
-	fmt.Println("proxy address: ", subnetIns.ContractAddress().Hex())
+	fmt.Println("new subnet address:", res.Hex())
+	fmt.Println("proxy address:", subnetIns.ContractAddress().Hex())
 }
 
 func TestMapAccount(t *testing.T) {
-	client, err := chain.InitClient([]string{TestChainUrl}, true)
-	if err != nil {
-		panic(err)
-	}
+	cfg := loadConfig(t)
+	client := newClient(t, cfg)
+	pk := newSigner(t, cfg)
 
-	pk, err := chain.Sr25519PairFromSecret("//Alice", 42)
-	if err != nil {
-		util.LogWithPurple("Sr25519PairFromSecret", err)
-		panic(err)
-	}
-
-	h160 := pk.H160Address()
-
+	h160, _ := util.H160FromPublicKey(pk.Public())
 	_, isSome, err := revive.GetOriginalAccountLatest(client.Api().RPC.State, h160)
 	if err != nil {
-		util.LogWithPurple("GetOriginalAccountLatest", err)
-		panic(err)
+		t.Fatal(err)
 	}
 	if !isSome {
 		runtimeCall := revive.MakeMapAccountCall()
 		call, err := (runtimeCall).AsCall()
 		if err != nil {
-			panic(err)
+			t.Fatal(err)
 		}
-
-		err = client.SignAndSubmit(&pk, call, true, 0)
-		if err != nil {
-			panic(err)
+		if err := client.SignAndSubmit(pk, call, true, 0); err != nil {
+			t.Fatal(err)
 		}
-	}
-}
-
-func TestSetPrice(t *testing.T) {
-	client, err := chain.InitClient([]string{TestChainUrl}, true)
-	if err != nil {
-		panic(err)
-	}
-
-	pk, err := chain.Sr25519PairFromSecret("//Alice", 42)
-	if err != nil {
-		util.LogWithPurple("Sr25519PairFromSecret", err)
-		panic(err)
-	}
-
-	subnetIns, err := subnet.InitSubnetContract(client, SubnetAddress)
-	if err != nil {
-		util.LogWithPurple("InitCloudContract", err)
-		panic(err)
-	}
-
-	err = subnetIns.ExecSetLevelPrice(1, subnet.RunPrice{
-		CpuPer:       1,
-		CvmCpuPer:    1,
-		MemoryPer:    1,
-		CvmMemoryPer: 1,
-		DiskPer:      1,
-		GpuPer:       1,
-	}, chain.ExecParams{
-		Signer:    &pk,
-		PayAmount: types.NewU128(*big.NewInt(0)),
-	})
-	if err != nil {
-		util.LogWithPurple("ExecSetLevelPrice", err)
-		panic(err)
-	}
-}
-
-func TestSetAssetPrice(t *testing.T) {
-	client, err := chain.InitClient([]string{TestChainUrl}, true)
-	if err != nil {
-		panic(err)
-	}
-
-	pk, err := chain.Sr25519PairFromSecret("//Alice", 42)
-	if err != nil {
-		util.LogWithPurple("Sr25519PairFromSecret", err)
-		panic(err)
-	}
-
-	subnetIns, err := subnet.InitSubnetContract(client, SubnetAddress)
-	if err != nil {
-		util.LogWithPurple("InitCloudContract", err)
-		panic(err)
-	}
-
-	name := []byte("T")
-	err = subnetIns.ExecSetAsset(subnet.AssetInfo{
-		Native: &name,
-	}, types.NewU256(*big.NewInt(1000)), chain.ExecParams{
-		Signer:    &pk,
-		PayAmount: types.NewU128(*big.NewInt(0)),
-	})
-
-	if err != nil {
-		util.LogWithPurple("ExecSetAsset", err)
-		panic(err)
 	}
 }
 
 func genSalt() [32]byte {
 	bytes := make([]byte, 32)
-	_, err := rand.Read(bytes)
-	if err != nil {
-		panic(err)
-	}
-	randomBytes := [32]byte{}
+	_, _ = rand.Read(bytes)
+	var randomBytes [32]byte
 	copy(randomBytes[:], bytes)
-
 	return randomBytes
 }

@@ -2,575 +2,209 @@ package contracts
 
 import (
 	"fmt"
-	"math/big"
 	"testing"
 
 	"wetee/test/contracts/subnet"
 
-	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	chain "github.com/wetee-dao/ink.go"
 	"github.com/wetee-dao/ink.go/util"
 )
 
-// TestSubnetQueryEpochInfo tests querying epoch information from subnet contract
+func newSubnetIns(t *testing.T) (*subnet.Subnet, chain.SignerType) {
+	t.Helper()
+	cfg := loadConfig(t)
+	client := newClient(t, cfg)
+	pk := newSigner(t, cfg)
+	ins, err := subnet.InitSubnetContract(client, cfg.Contracts.Subnet)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return ins, pk
+}
+
+func dryRunParam(pk chain.SignerType) chain.DryRunParams {
+	return chain.DefaultParamWithOrigin(pk.AccountID())
+}
+
 func TestSubnetQueryEpochInfo(t *testing.T) {
-	client, err := chain.InitClient([]string{TestChainUrl}, true)
+	ins, pk := newSubnetIns(t)
+	info, _, err := ins.QueryEpochInfo(dryRunParam(pk))
 	if err != nil {
-		panic(err)
+		t.Fatal("QueryEpochInfo:", err)
 	}
-
-	pk, err := chain.Sr25519PairFromSecret("//Alice", 42)
-	if err != nil {
-		util.LogWithPurple("Sr25519PairFromSecret", err)
-		panic(err)
-	}
-
-	subnetIns, err := subnet.InitSubnetContract(client, SubnetAddress)
-	if err != nil {
-		util.LogWithPurple("InitSubnetContract", err)
-		panic(err)
-	}
-
-	epochInfo, _, err := subnetIns.QueryEpochInfo(chain.DryRunParams{
-		Origin:    pk.AccountID(),
-		PayAmount: types.NewU128(*big.NewInt(0)),
-	})
-	if err != nil {
-		util.LogWithPurple("QueryEpochInfo", err)
-		panic(err)
-	}
-
-	fmt.Printf("Epoch Info:\n")
-	fmt.Printf("  Epoch: %d\n", epochInfo.Epoch)
-	fmt.Printf("  EpochSlot: %d\n", epochInfo.EpochSlot)
-	fmt.Printf("  LastEpochBlock: %d\n", epochInfo.LastEpochBlock)
-	fmt.Printf("  Now: %d\n", epochInfo.Now)
-	fmt.Printf("  SideChainPub: %s\n", epochInfo.SideChainPub.Hex())
+	fmt.Printf("Epoch: %d  Slot: %d  LastBlock: %d  Now: %d\n",
+		info.Epoch, info.EpochSlot, info.LastEpochBlock, info.Now)
 }
 
-// TestSubnetQuerySideChainKey tests querying side chain key from subnet contract
-func TestSubnetQuerySideChainKey(t *testing.T) {
-	client, err := chain.InitClient([]string{TestChainUrl}, true)
+func TestSubnetQueryTeeChainKey(t *testing.T) {
+	ins, pk := newSubnetIns(t)
+	key, _, err := ins.QueryTeeChainKey(dryRunParam(pk))
 	if err != nil {
-		panic(err)
+		t.Fatal("QueryTeeChainKey:", err)
 	}
-
-	pk, err := chain.Sr25519PairFromSecret("//Alice", 42)
-	if err != nil {
-		util.LogWithPurple("Sr25519PairFromSecret", err)
-		panic(err)
-	}
-
-	subnetIns, err := subnet.InitSubnetContract(client, SubnetAddress)
-	if err != nil {
-		util.LogWithPurple("InitSubnetContract", err)
-		panic(err)
-	}
-
-	sideChainKey, _, err := subnetIns.QuerySideChainKey(chain.DryRunParams{
-		Origin:    pk.AccountID(),
-		PayAmount: types.NewU128(*big.NewInt(0)),
-	})
-	if err != nil {
-		util.LogWithPurple("QuerySideChainKey", err)
-		panic(err)
-	}
-
-	fmt.Printf("Side Chain Key: %s\n", sideChainKey.Hex())
+	fmt.Println("TeeChainKey:", key.Hex())
 }
 
-// TestSubnetQueryRegions tests querying all regions from subnet contract
 func TestSubnetQueryRegions(t *testing.T) {
-	client, err := chain.InitClient([]string{TestChainUrl}, true)
+	ins, pk := newSubnetIns(t)
+	regions, _, err := ins.QueryRegions(dryRunParam(pk))
 	if err != nil {
-		panic(err)
+		t.Fatal("QueryRegions:", err)
 	}
-
-	pk, err := chain.Sr25519PairFromSecret("//Alice", 42)
-	if err != nil {
-		util.LogWithPurple("Sr25519PairFromSecret", err)
-		panic(err)
-	}
-
-	subnetIns, err := subnet.InitSubnetContract(client, SubnetAddress)
-	if err != nil {
-		util.LogWithPurple("InitSubnetContract", err)
-		panic(err)
-	}
-
-	regions, _, err := subnetIns.QueryRegions(chain.DryRunParams{
-		Origin:    pk.AccountID(),
-		PayAmount: types.NewU128(*big.NewInt(0)),
-	})
-	if err != nil {
-		util.LogWithPurple("QueryRegions", err)
-		panic(err)
-	}
-
-	fmt.Printf("Regions:\n")
-	for _, region := range *regions {
-		fmt.Printf("  ID: %d, Name: %s\n", region.F0, string(region.F1))
+	for _, r := range *regions {
+		fmt.Printf("Region %d: %s\n", r.F0, string(r.F1))
 	}
 }
 
-// TestSubnetQueryRegion tests querying a specific region by ID
 func TestSubnetQueryRegion(t *testing.T) {
-	client, err := chain.InitClient([]string{TestChainUrl}, true)
+	ins, pk := newSubnetIns(t)
+	region, _, err := ins.QueryRegion(0, dryRunParam(pk))
 	if err != nil {
-		panic(err)
+		t.Fatal("QueryRegion:", err)
 	}
-
-	pk, err := chain.Sr25519PairFromSecret("//Alice", 42)
-	if err != nil {
-		util.LogWithPurple("Sr25519PairFromSecret", err)
-		panic(err)
-	}
-
-	subnetIns, err := subnet.InitSubnetContract(client, SubnetAddress)
-	if err != nil {
-		util.LogWithPurple("InitSubnetContract", err)
-		panic(err)
-	}
-
-	region, _, err := subnetIns.QueryRegion(0, chain.DryRunParams{
-		Origin:    pk.AccountID(),
-		PayAmount: types.NewU128(*big.NewInt(0)),
-	})
-	if err != nil {
-		util.LogWithPurple("QueryRegion", err)
-		panic(err)
-	}
-
 	if region.IsSome() {
 		v, _ := region.UnWrap()
-		fmt.Printf("Region 0: %s\n", string(v))
+		fmt.Println("Region 0:", string(v))
 	} else {
 		fmt.Println("Region 0 not found")
 	}
 }
 
-// TestSubnetQueryLevelPrice tests querying price for a specific level
 func TestSubnetQueryLevelPrice(t *testing.T) {
-	client, err := chain.InitClient([]string{TestChainUrl}, true)
+	ins, pk := newSubnetIns(t)
+	price, _, err := ins.QueryLevelPrice(0, dryRunParam(pk))
 	if err != nil {
-		panic(err)
+		t.Fatal("QueryLevelPrice:", err)
 	}
-
-	pk, err := chain.Sr25519PairFromSecret("//Alice", 42)
-	if err != nil {
-		util.LogWithPurple("Sr25519PairFromSecret", err)
-		panic(err)
-	}
-
-	subnetIns, err := subnet.InitSubnetContract(client, SubnetAddress)
-	if err != nil {
-		util.LogWithPurple("InitSubnetContract", err)
-		panic(err)
-	}
-
-	price, _, err := subnetIns.QueryLevelPrice(0, chain.DryRunParams{
-		Origin:    pk.AccountID(),
-		PayAmount: types.NewU128(*big.NewInt(0)),
-	})
-	if err != nil {
-		util.LogWithPurple("QueryLevelPrice", err)
-		panic(err)
-	}
-
 	if price.IsSome() {
 		v, _ := price.UnWrap()
-		fmt.Printf("Level 0 Price:\n")
-		fmt.Printf("  CpuPer: %d\n", v.CpuPer)
-		fmt.Printf("  CvmCpuPer: %d\n", v.CvmCpuPer)
-		fmt.Printf("  MemoryPer: %d\n", v.MemoryPer)
-		fmt.Printf("  CvmMemoryPer: %d\n", v.CvmMemoryPer)
-		fmt.Printf("  DiskPer: %d\n", v.DiskPer)
-		fmt.Printf("  GpuPer: %d\n", v.GpuPer)
+		fmt.Printf("Level0: cpu=%d cvm_cpu=%d mem=%d cvm_mem=%d disk=%d gpu=%d\n",
+			v.CpuPer, v.CvmCpuPer, v.MemoryPer, v.CvmMemoryPer, v.DiskPer, v.GpuPer)
 	} else {
-		fmt.Println("Level 0 price not set")
+		fmt.Println("Level 0 not set")
 	}
 }
 
-// TestSubnetQueryAsset tests querying asset information by ID
 func TestSubnetQueryAsset(t *testing.T) {
-	client, err := chain.InitClient([]string{TestChainUrl}, true)
+	ins, pk := newSubnetIns(t)
+	asset, _, err := ins.QueryAsset(0, dryRunParam(pk))
 	if err != nil {
-		panic(err)
+		t.Fatal("QueryAsset:", err)
 	}
-
-	pk, err := chain.Sr25519PairFromSecret("//Alice", 42)
-	if err != nil {
-		util.LogWithPurple("Sr25519PairFromSecret", err)
-		panic(err)
-	}
-
-	subnetIns, err := subnet.InitSubnetContract(client, SubnetAddress)
-	if err != nil {
-		util.LogWithPurple("InitSubnetContract", err)
-		panic(err)
-	}
-
-	asset, _, err := subnetIns.QueryAsset(0, chain.DryRunParams{
-		Origin:    pk.AccountID(),
-		PayAmount: types.NewU128(*big.NewInt(0)),
-	})
-	if err != nil {
-		util.LogWithPurple("QueryAsset", err)
-		panic(err)
-	}
-
 	if asset.IsSome() {
 		v, _ := asset.UnWrap()
-		fmt.Printf("Asset 0:\n")
-		if v.F0.Native != nil {
-			fmt.Printf("  Type: Native, Name: %s\n", string(*v.F0.Native))
-		}
-		if v.F0.ERC20 != nil {
-			fmt.Printf("  Type: ERC20, Contract: %s\n", v.F0.ERC20.F1.Hex())
-		}
-		fmt.Printf("  Price: %s\n", v.F1.String())
+		fmt.Printf("Asset0 price: %s\n", v.F1.String())
 	} else {
 		fmt.Println("Asset 0 not found")
 	}
 }
 
-// TestSubnetQueryWorker tests querying worker information by ID
 func TestSubnetQueryWorker(t *testing.T) {
-	client, err := chain.InitClient([]string{TestChainUrl}, true)
+	ins, pk := newSubnetIns(t)
+	w, _, err := ins.QueryWorker(0, dryRunParam(pk))
 	if err != nil {
-		panic(err)
+		t.Fatal("QueryWorker:", err)
 	}
-
-	pk, err := chain.Sr25519PairFromSecret("//Alice", 42)
-	if err != nil {
-		util.LogWithPurple("Sr25519PairFromSecret", err)
-		panic(err)
-	}
-
-	subnetIns, err := subnet.InitSubnetContract(client, SubnetAddress)
-	if err != nil {
-		util.LogWithPurple("InitSubnetContract", err)
-		panic(err)
-	}
-
-	worker, _, err := subnetIns.QueryWorker(0, chain.DryRunParams{
-		Origin:    pk.AccountID(),
-		PayAmount: types.NewU128(*big.NewInt(0)),
-	})
-	if err != nil {
-		util.LogWithPurple("QueryWorker", err)
-		panic(err)
-	}
-
-	if worker.IsSome() {
-		v, _ := worker.UnWrap()
-		fmt.Printf("Worker 0:\n")
-		fmt.Printf("  Name: %s\n", string(v.Name))
-		fmt.Printf("  Owner: %s\n", v.Owner.Hex())
-		fmt.Printf("  Level: %d\n", v.Level)
-		fmt.Printf("  RegionId: %d\n", v.RegionId)
-		fmt.Printf("  StartBlock: %d\n", v.StartBlock)
-		fmt.Printf("  Port: %d\n", v.Port)
-		fmt.Printf("  Status: %d\n", v.Status)
+	if w.IsSome() {
+		v, _ := w.UnWrap()
+		fmt.Printf("Worker0: name=%s level=%d port=%d status=%d\n",
+			string(v.Name), v.Level, v.Port, v.Status)
 	} else {
 		fmt.Println("Worker 0 not found")
 	}
 }
 
-// TestSubnetQueryWorkers tests querying workers list with pagination
 func TestSubnetQueryWorkers(t *testing.T) {
-	client, err := chain.InitClient([]string{TestChainUrl}, true)
+	ins, pk := newSubnetIns(t)
+	workers, _, err := ins.QueryWorkers(util.NewNone[uint64](), 10, dryRunParam(pk))
 	if err != nil {
-		panic(err)
+		t.Fatal("QueryWorkers:", err)
 	}
-
-	pk, err := chain.Sr25519PairFromSecret("//Alice", 42)
-	if err != nil {
-		util.LogWithPurple("Sr25519PairFromSecret", err)
-		panic(err)
-	}
-
-	subnetIns, err := subnet.InitSubnetContract(client, SubnetAddress)
-	if err != nil {
-		util.LogWithPurple("InitSubnetContract", err)
-		panic(err)
-	}
-
-	workers, _, err := subnetIns.QueryWorkers(util.NewNone[uint64](), 10, chain.DryRunParams{
-		Origin:    pk.AccountID(),
-		PayAmount: types.NewU128(*big.NewInt(0)),
-	})
-	if err != nil {
-		util.LogWithPurple("QueryWorkers", err)
-		panic(err)
-	}
-
-	fmt.Printf("Workers (first 10):\n")
-	for _, w := range *workers {
-		fmt.Printf("  ID: %d, Name: %s, Status: %d\n", w.F0, string(w.F1.Name), w.F1.Status)
-	}
+	fmt.Printf("Workers count: %d\n", len(*workers))
 }
 
-// TestSubnetQueryUserWorker tests querying worker by user address
 func TestSubnetQueryUserWorker(t *testing.T) {
-	client, err := chain.InitClient([]string{TestChainUrl}, true)
+	ins, pk := newSubnetIns(t)
+	h160, _ := util.H160FromPublicKey(pk.Public())
+	uw, _, err := ins.QueryUserWorker(h160, dryRunParam(pk))
 	if err != nil {
-		panic(err)
+		t.Fatal("QueryUserWorker:", err)
 	}
-
-	pk, err := chain.Sr25519PairFromSecret("//Alice", 42)
-	if err != nil {
-		util.LogWithPurple("Sr25519PairFromSecret", err)
-		panic(err)
-	}
-
-	subnetIns, err := subnet.InitSubnetContract(client, SubnetAddress)
-	if err != nil {
-		util.LogWithPurple("InitSubnetContract", err)
-		panic(err)
-	}
-
-	userWorker, _, err := subnetIns.QueryUserWorker(pk.H160Address(), chain.DryRunParams{
-		Origin:    pk.AccountID(),
-		PayAmount: types.NewU128(*big.NewInt(0)),
-	})
-	if err != nil {
-		util.LogWithPurple("QueryUserWorker", err)
-		panic(err)
-	}
-
-	if userWorker.IsSome() {
-		v, _ := userWorker.UnWrap()
-		fmt.Printf("User Worker:\n")
-		fmt.Printf("  ID: %d, Name: %s\n", v.F0, string(v.F1.Name))
+	if uw.IsSome() {
+		v, _ := uw.UnWrap()
+		fmt.Printf("UserWorker: id=%d name=%s\n", v.F0, string(v.F1.Name))
 	} else {
-		fmt.Println("No worker found for user")
+		fmt.Println("No worker for user")
 	}
 }
 
-// TestSubnetQueryMintWorker tests querying worker by mint account ID
 func TestSubnetQueryMintWorker(t *testing.T) {
-	client, err := chain.InitClient([]string{TestChainUrl}, true)
+	ins, pk := newSubnetIns(t)
+	mw, _, err := ins.QueryMintWorker(pk.AccountID(), dryRunParam(pk))
 	if err != nil {
-		panic(err)
+		t.Fatal("QueryMintWorker:", err)
 	}
-
-	pk, err := chain.Sr25519PairFromSecret("//Alice", 42)
-	if err != nil {
-		util.LogWithPurple("Sr25519PairFromSecret", err)
-		panic(err)
-	}
-
-	subnetIns, err := subnet.InitSubnetContract(client, SubnetAddress)
-	if err != nil {
-		util.LogWithPurple("InitSubnetContract", err)
-		panic(err)
-	}
-
-	// Query with Alice's account ID
-	mintWorker, _, err := subnetIns.QueryMintWorker(pk.AccountID(), chain.DryRunParams{
-		Origin:    pk.AccountID(),
-		PayAmount: types.NewU128(*big.NewInt(0)),
-	})
-	if err != nil {
-		util.LogWithPurple("QueryMintWorker", err)
-		panic(err)
-	}
-
-	if mintWorker.IsSome() {
-		v, _ := mintWorker.UnWrap()
-		fmt.Printf("Mint Worker:\n")
-		fmt.Printf("  ID: %d, Name: %s\n", v.F0, string(v.F1.Name))
+	if mw.IsSome() {
+		v, _ := mw.UnWrap()
+		fmt.Printf("MintWorker: id=%d name=%s\n", v.F0, string(v.F1.Name))
 	} else {
-		fmt.Println("No worker found for mint account")
+		fmt.Println("No mint worker")
 	}
 }
 
-// TestSubnetQueryBootNodes tests querying boot nodes
 func TestSubnetQueryBootNodes(t *testing.T) {
-	client, err := chain.InitClient([]string{TestChainUrl}, true)
+	ins, pk := newSubnetIns(t)
+	nodes, _, err := ins.QueryBootNodes(dryRunParam(pk))
 	if err != nil {
-		panic(err)
+		t.Fatal("QueryBootNodes:", err)
 	}
-
-	pk, err := chain.Sr25519PairFromSecret("//Alice", 42)
-	if err != nil {
-		util.LogWithPurple("Sr25519PairFromSecret", err)
-		panic(err)
-	}
-
-	subnetIns, err := subnet.InitSubnetContract(client, SubnetAddress)
-	if err != nil {
-		util.LogWithPurple("InitSubnetContract", err)
-		panic(err)
-	}
-
-	bootNodes, _, err := subnetIns.QueryBootNodes(chain.DryRunParams{
-		Origin:    pk.AccountID(),
-		PayAmount: types.NewU128(*big.NewInt(0)),
-	})
-	if err != nil {
-		util.LogWithPurple("QueryBootNodes", err)
-		panic(err)
-	}
-
-	if !bootNodes.IsErr {
-		fmt.Printf("Boot Nodes:\n")
-		for _, node := range bootNodes.V {
-			fmt.Printf("  Name: %s, Validator: %x, P2P: %x\n",
-				string(node.Name), node.ValidatorId, node.P2pId)
-		}
-	} else {
-		fmt.Printf("Error: %s\n", bootNodes.E.Error())
+	if !nodes.IsErr {
+		fmt.Printf("BootNodes count: %d\n", len(nodes.V))
 	}
 }
 
-// TestSubnetQuerySecrets tests querying all secret nodes
 func TestSubnetQuerySecrets(t *testing.T) {
-	client, err := chain.InitClient([]string{TestChainUrl}, true)
+	ins, pk := newSubnetIns(t)
+	secrets, _, err := ins.QuerySecrets(dryRunParam(pk))
 	if err != nil {
-		panic(err)
+		t.Fatal("QuerySecrets:", err)
 	}
-
-	pk, err := chain.Sr25519PairFromSecret("//Alice", 42)
-	if err != nil {
-		util.LogWithPurple("Sr25519PairFromSecret", err)
-		panic(err)
-	}
-
-	subnetIns, err := subnet.InitSubnetContract(client, SubnetAddress)
-	if err != nil {
-		util.LogWithPurple("InitSubnetContract", err)
-		panic(err)
-	}
-
-	secrets, _, err := subnetIns.QuerySecrets(chain.DryRunParams{
-		Origin:    pk.AccountID(),
-		PayAmount: types.NewU128(*big.NewInt(0)),
-	})
-	if err != nil {
-		util.LogWithPurple("QuerySecrets", err)
-		panic(err)
-	}
-
-	fmt.Printf("Secrets:\n")
-	for _, s := range *secrets {
-		fmt.Printf("  ID: %d, Name: %s, Status: %d\n", s.F0, string(s.F1.Name), s.F1.Status)
-	}
+	fmt.Printf("Secrets count: %d\n", len(*secrets))
 }
 
-// TestSubnetQueryGetPendingSecrets tests querying pending secrets
 func TestSubnetQueryGetPendingSecrets(t *testing.T) {
-	client, err := chain.InitClient([]string{TestChainUrl}, true)
+	ins, pk := newSubnetIns(t)
+	pending, _, err := ins.QueryGetPendingSecrets(dryRunParam(pk))
 	if err != nil {
-		panic(err)
+		t.Fatal("QueryGetPendingSecrets:", err)
 	}
-
-	pk, err := chain.Sr25519PairFromSecret("//Alice", 42)
-	if err != nil {
-		util.LogWithPurple("Sr25519PairFromSecret", err)
-		panic(err)
-	}
-
-	subnetIns, err := subnet.InitSubnetContract(client, SubnetAddress)
-	if err != nil {
-		util.LogWithPurple("InitSubnetContract", err)
-		panic(err)
-	}
-
-	pendingSecrets, _, err := subnetIns.QueryGetPendingSecrets(chain.DryRunParams{
-		Origin:    pk.AccountID(),
-		PayAmount: types.NewU128(*big.NewInt(0)),
-	})
-	if err != nil {
-		util.LogWithPurple("QueryGetPendingSecrets", err)
-		panic(err)
-	}
-
-	fmt.Printf("Pending Secrets:\n")
-	for _, ps := range *pendingSecrets {
-		fmt.Printf("  Secret ID: %d, Block: %d\n", ps.F0, ps.F1)
-	}
+	fmt.Printf("Pending secrets count: %d\n", len(*pending))
 }
 
-// TestSubnetQueryValidators tests querying all validators
 func TestSubnetQueryValidators(t *testing.T) {
-	client, err := chain.InitClient([]string{TestChainUrl}, true)
+	ins, pk := newSubnetIns(t)
+	validators, _, err := ins.QueryValidators(dryRunParam(pk))
 	if err != nil {
-		panic(err)
+		t.Fatal("QueryValidators:", err)
 	}
-
-	pk, err := chain.Sr25519PairFromSecret("//Alice", 42)
-	if err != nil {
-		util.LogWithPurple("Sr25519PairFromSecret", err)
-		panic(err)
-	}
-
-	subnetIns, err := subnet.InitSubnetContract(client, SubnetAddress)
-	if err != nil {
-		util.LogWithPurple("InitSubnetContract", err)
-		panic(err)
-	}
-
-	validators, _, err := subnetIns.QueryValidators(chain.DryRunParams{
-		Origin:    pk.AccountID(),
-		PayAmount: types.NewU128(*big.NewInt(0)),
-	})
-	if err != nil {
-		util.LogWithPurple("QueryValidators", err)
-		panic(err)
-	}
-
-	fmt.Printf("Validators:\n")
-	for _, v := range *validators {
-		fmt.Printf("  ID: %d, Name: %s, Block: %d\n", v.F0, string(v.F1.Name), v.F2)
-	}
+	fmt.Printf("Validators count: %d\n", len(*validators))
 }
 
-// TestSubnetQueryNextEpochValidators tests querying next epoch validators
 func TestSubnetQueryNextEpochValidators(t *testing.T) {
-	client, err := chain.InitClient([]string{TestChainUrl}, true)
+	ins, pk := newSubnetIns(t)
+	next, _, err := ins.QueryNextEpochValidators(dryRunParam(pk))
 	if err != nil {
-		panic(err)
+		t.Fatal("QueryNextEpochValidators:", err)
 	}
-
-	pk, err := chain.Sr25519PairFromSecret("//Alice", 42)
-	if err != nil {
-		util.LogWithPurple("Sr25519PairFromSecret", err)
-		panic(err)
-	}
-
-	subnetIns, err := subnet.InitSubnetContract(client, SubnetAddress)
-	if err != nil {
-		util.LogWithPurple("InitSubnetContract", err)
-		panic(err)
-	}
-
-	nextValidators, _, err := subnetIns.QueryNextEpochValidators(chain.DryRunParams{
-		Origin:    pk.AccountID(),
-		PayAmount: types.NewU128(*big.NewInt(0)),
-	})
-	if err != nil {
-		util.LogWithPurple("QueryNextEpochValidators", err)
-		panic(err)
-	}
-
-	if !nextValidators.IsErr {
-		fmt.Printf("Next Epoch Validators:\n")
-		for _, v := range nextValidators.V {
-			fmt.Printf("  ID: %d, Name: %s, Block: %d\n", v.F0, string(v.F1.Name), v.F2)
-		}
-	} else {
-		fmt.Printf("Error: %s\n", nextValidators.E.Error())
+	if !next.IsErr {
+		fmt.Printf("Next epoch validators count: %d\n", len(next.V))
 	}
 }
 
-// TestSubnetQueryAll runs all query tests sequentially
 func TestSubnetQueryAll(t *testing.T) {
-	fmt.Println("=== Testing Subnet Contract Queries ===")
-
+	fmt.Println("=== Subnet Queries ===")
 	t.Run("EpochInfo", TestSubnetQueryEpochInfo)
-	t.Run("SideChainKey", TestSubnetQuerySideChainKey)
+	t.Run("TeeChainKey", TestSubnetQueryTeeChainKey)
 	t.Run("Regions", TestSubnetQueryRegions)
 	t.Run("Region", TestSubnetQueryRegion)
 	t.Run("LevelPrice", TestSubnetQueryLevelPrice)

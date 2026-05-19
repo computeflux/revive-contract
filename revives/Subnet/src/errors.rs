@@ -16,9 +16,9 @@ pub enum Error {
     SecretNodeAlreadyExists,
     SetCodeFailed,
     EpochNotExpired,
-    InvalidSideChainSignature,
+    InvalidTeeChainSignature,
     NodeIsRunning,
-    InvalidSideChainCaller,
+    InvalidTeeChainCaller,
     RegionNotExist,
     AssetNotExist,
     DepositNotEnough,
@@ -26,4 +26,5 @@ pub enum Error {
     SlashAmountTooLarge,
     CloudContractNotSet,
     ResourceNotEnough,
+    InvalidBlsKey,
 }

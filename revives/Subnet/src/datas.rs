@@ -16,6 +16,7 @@ pub struct SecretNode {
     pub ip: Ip,
     pub port: u32,
     pub status: u8,
+    pub bls: Bytes,
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Encode, Decode)]
@@ -36,7 +37,7 @@ pub struct EpochInfo {
     pub epoch_slot: u32,
     pub last_epoch_block: BlockNumber,
     pub now: BlockNumber,
-    pub side_chain_pub: Address,
+    pub tee_chain_pub: Address,
 }
 
 /// 硬件等级最低资源规格要求
