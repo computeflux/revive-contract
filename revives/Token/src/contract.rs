@@ -27,7 +27,7 @@ use wrevive_api::*;
 use wrevive_macro::{mapping, revive_contract, storage};
 
 pub use errors::Error;
-pub use primitives::ensure;
+pub use primitives::{UniAddr, ensure};
 
 /// Relay 事件记录 | Relay event record
 #[derive(Clone, Encode, Decode, Debug)]
@@ -49,7 +49,7 @@ pub mod token {
     /// 主链币最小单位 (DOT=10^15 Planck, ETH=10^18 Wei)
     const TOKEN_UNIT: Storage<U256> = storage!(b"token_unit");
     /// 用户积分余额 (1 积分 ≈ 1/1000 USD)
-    const BALANCES: Mapping<Address, U256> = mapping!(b"balances");
+    const CREDITS: Mapping<Address, U256> = mapping!(b"credits");
     /// 全局事件 nonce
     const EVENT_NONCE: Storage<u64> = storage!(b"event_nonce");
     /// 事件存储: nonce → EventRecord
@@ -88,7 +88,6 @@ pub mod token {
         ensure_owner()?;
         ensure!(subnet_addr != Address::zero(), Error::ZeroAddress);
         SUBNET.set(&subnet_addr);
-        emit_event(b"gateway", b"SetSubnet", Encode::encode(&subnet_addr));
         Ok(())
     }
 
@@ -100,7 +99,6 @@ pub mod token {
             Error::AmountMustBeGreaterThanZero
         );
         RATE.set(&new_rate);
-        emit_event(b"gateway", b"SetRate", Encode::encode(&new_rate));
         Ok(())
     }
 
@@ -109,7 +107,6 @@ pub mod token {
         ensure_owner()?;
         ensure!(unit > U256::from(0u64), Error::AmountMustBeGreaterThanZero);
         TOKEN_UNIT.set(&unit);
-        emit_event(b"gateway", b"SetTokenUnit", Encode::encode(&unit));
         Ok(())
     }
 
@@ -165,7 +162,7 @@ pub mod token {
     // ========== 查询 (SCALE) ==========
     #[revive(message)]
     pub fn get_balance(user: Address) -> U256 {
-        BALANCES.get(&user).unwrap_or(U256::from(0u64))
+        CREDITS.get(&user).unwrap_or(U256::from(0u64))
     }
 
     /// DOT → 积分换算 (只读) | DOT → points conversion (read-only)
@@ -174,6 +171,14 @@ pub mod token {
         let rate = RATE.get().unwrap_or(U256::from(1u64));
         let token_unit = TOKEN_UNIT.get().unwrap_or(U256::from(10_000_000_000u64));
         dot_amount * rate / token_unit
+    }
+
+    /// DOT → 积分换算 (只读) | DOT → points conversion (read-only)
+    #[revive(message)]
+    pub fn to_points_debug(dot_amount: U256) -> (U256, U256, U256, U256) {
+        let rate = RATE.get().unwrap_or(U256::from(1u64));
+        let token_unit = TOKEN_UNIT.get().unwrap_or(U256::from(10_000_000_000u64));
+        (dot_amount, rate, token_unit, dot_amount * rate / token_unit)
     }
 
     #[revive(message)]
@@ -199,13 +204,14 @@ pub mod token {
     // ========== 查询 (Sol ABI) ==========
     #[revive(message, sol)]
     pub fn get_balance_sol(user: Address) -> U256 {
-        BALANCES.get(&user).unwrap_or(U256::from(0u64))
+        CREDITS.get(&user).unwrap_or(U256::from(0u64))
     }
 
     #[revive(message, sol)]
     pub fn to_points_sol(dot_amount: U256) -> U256 {
         let rate = RATE.get().unwrap_or(U256::from(1u64));
-        dot_amount * rate
+        let token_unit = TOKEN_UNIT.get().unwrap_or(U256::from(10_000_000_000u64));
+        dot_amount * rate / token_unit
     }
 
     #[revive(message, sol)]
@@ -228,11 +234,6 @@ pub mod token {
             let owner_addr = OWNER.get().unwrap_or(Address::zero());
             api.transfer(&owner_addr, &contract_balance)
                 .map_err(|_| Error::TransferFailed)?;
-            emit_event(
-                b"gateway",
-                b"EmergencyWithdraw",
-                Encode::encode(&contract_balance),
-            );
         }
         Ok(())
     }
@@ -245,9 +246,20 @@ pub mod token {
         if value > U256::from(0u64) {
             let points = value_to_points(value);
             let caller = api.caller();
-            let current = BALANCES.get(&caller).unwrap_or(U256::from(0u64));
-            BALANCES.set(&caller, &(current + points));
-            emit_event(b"gateway", b"Recharge", Encode::encode(&(caller, points)));
+            let current = CREDITS.get(&caller).unwrap_or(U256::from(0u64));
+            CREDITS.set(&caller, &(current + points));
+
+            emit_event(
+                b"gateway",
+                b"Recharge",
+                Encode::encode(&(
+                    UniAddr {
+                        t: 3,
+                        v: caller.as_ref().to_vec(),
+                    },
+                    points,
+                )),
+            );
         }
     }
 
@@ -256,15 +268,28 @@ pub mod token {
         let api = env();
         let value = api.value_transferred();
         ensure!(value > U256::from(0u64), Error::AmountMustBeGreaterThanZero);
+
         let points = value_to_points(value);
         ensure!(
             points > U256::from(0u64),
             Error::AmountMustBeGreaterThanZero
         );
+
         let caller = api.caller();
-        let current = BALANCES.get(&caller).unwrap_or(U256::from(0u64));
-        BALANCES.set(&caller, &(current + points));
-        emit_event(b"gateway", b"Recharge", Encode::encode(&(caller, points)));
+        let current = CREDITS.get(&caller).unwrap_or(U256::from(0u64));
+        CREDITS.set(&caller, &(current + points));
+
+        emit_event(
+            b"gateway",
+            b"Recharge",
+            Encode::encode(&(
+                UniAddr {
+                    t: 3,
+                    v: caller.as_ref().to_vec(),
+                },
+                points,
+            )),
+        );
         Ok(points)
     }
 
@@ -274,18 +299,32 @@ pub mod token {
             points > U256::from(0u64),
             Error::AmountMustBeGreaterThanZero
         );
-        let balance = BALANCES.get(&user).unwrap_or(U256::from(0u64));
+
+        let balance = CREDITS.get(&user).unwrap_or(U256::from(0u64));
         ensure!(balance >= points, Error::InsufficientBalance);
+
         let eth_amount = points_to_value(points);
         ensure!(
             eth_amount > U256::from(0u64),
             Error::AmountMustBeGreaterThanZero
         );
-        BALANCES.set(&user, &(balance - points));
+
+        CREDITS.set(&user, &(balance - points));
         env()
             .transfer(&user, &eth_amount)
             .map_err(|_| Error::TransferFailed)?;
-        emit_event(b"gateway", b"Withdraw", Encode::encode(&(user, points)));
+
+        emit_event(
+            b"gateway",
+            b"Withdraw",
+            Encode::encode(&(
+                UniAddr {
+                    t: 3,
+                    v: user.as_ref().to_vec(),
+                },
+                points,
+            )),
+        );
         Ok(())
     }
 

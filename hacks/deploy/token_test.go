@@ -9,8 +9,31 @@ import (
 
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	chain "github.com/wetee-dao/ink.go"
+	"github.com/wetee-dao/ink.go/pallet/system"
 	"github.com/wetee-dao/ink.go/util"
 )
+
+const Unit = 10_000_000_000
+
+// 4905.0_859_764_437
+func TestGetChainBalance(t *testing.T) {
+	cfg := loadConfig(t)
+	client := newClient(t, cfg)
+	pk := newSigner(t, cfg)
+
+	// 账户地址
+	signer := pk.(*chain.Signer)
+	fmt.Println("Account SS58:", signer.Address)
+	h160, _ := util.H160FromPublicKey(pk.Public())
+	fmt.Println("Account H160:", h160.Hex())
+
+	// 查询链上余额
+	accountInfo, err := system.GetAccountLatest(client.Api().RPC.State, pk.AccountID())
+	if err != nil {
+		t.Fatal("get account balance:", err)
+	}
+	fmt.Println("Chain Free Balance:", accountInfo.Data.Free)
+}
 
 func TestRecharge(t *testing.T) {
 	cfg := loadConfig(t)
@@ -22,7 +45,23 @@ func TestRecharge(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	amount := types.NewU128(*big.NewInt(1_000_000_000_000))
+	param := chain.DefaultParamWithOrigin(pk.AccountID())
+	h160, _ := util.H160FromPublicKey(pk.Public())
+
+	// 查询充值前余额
+	chainBefore, err := system.GetAccountLatest(client.Api().RPC.State, pk.AccountID())
+	if err != nil {
+		t.Fatal("get chain balance before:", err)
+	}
+	fmt.Println("chain balance before recharge:", chainBefore.Data.Free)
+
+	balBefore, _, err := tokenIns.QueryGetBalance(h160, param)
+	if err != nil {
+		t.Fatal("get_balance before:", err)
+	}
+	fmt.Println("credits before recharge:  ", balBefore.String())
+
+	amount := types.NewU128(*big.NewInt(Unit))
 	err = tokenIns.ExecRecharge(chain.ExecParams{
 		Signer:    pk,
 		PayAmount: amount,
@@ -31,13 +70,24 @@ func TestRecharge(t *testing.T) {
 		t.Fatal("recharge:", err)
 	}
 
-	param := chain.DefaultParamWithOrigin(pk.AccountID())
-	h160, _ := util.H160FromPublicKey(pk.Public())
-	bal, _, err := tokenIns.QueryGetBalance(h160, param)
+	// 查询充值后余额
+	chainAfter, err := system.GetAccountLatest(client.Api().RPC.State, pk.AccountID())
 	if err != nil {
-		t.Fatal("get_balance:", err)
+		t.Fatal("get chain balance after:", err)
 	}
-	fmt.Println("balance after recharge:", bal)
+	fmt.Println("chain balance after recharge: ", chainAfter.Data.Free)
+
+	balAfter, _, err := tokenIns.QueryGetBalance(h160, param)
+	if err != nil {
+		t.Fatal("get_balance after:", err)
+	}
+	fmt.Println("credits after recharge:   ", balAfter.String())
+
+	// 计算充值消耗和积分
+	chainDiff := new(big.Int).Sub(chainBefore.Data.Free.Int, chainAfter.Data.Free.Int)
+	creditDiff := new(big.Int).Sub(balAfter.Int, balBefore.Int)
+	fmt.Println("chain spent (Planck):", chainDiff)
+	fmt.Println("recharged credits:   ", creditDiff.Uint64())
 }
 
 func TestGetRate(t *testing.T) {
@@ -100,21 +150,17 @@ func TestToPoints(t *testing.T) {
 
 	// 先查询 TOKEN_UNIT
 	param := chain.DefaultParamWithOrigin(pk.AccountID())
-	unit, _, err := tokenIns.QueryGetTokenUnit(param)
-	if err != nil {
-		t.Fatal("get_token_unit:", err)
-	}
 
 	// 3 DOT = 3 × TOKEN_UNIT Planck
-	dots := new(big.Int).SetUint64(3)
-	threeDOT := new(big.Int).Mul(dots, unit.Int)
-	ethAmount := types.NewU256(*threeDOT)
+	dots := new(big.Int).SetUint64(3 * Unit)
+	ethAmount := types.NewU256(*dots)
 
-	points, _, err := tokenIns.QueryToPoints(ethAmount, param)
+	points, _, err := tokenIns.QueryToPointsDebug(ethAmount, param)
 	if err != nil {
 		t.Fatal("to_points:", err)
 	}
-	fmt.Println("3 DOT =", points, "points")
+	fmt.Println(*points)
+	fmt.Println("3 DOT =", points.F3, "points")
 }
 
 func TestGetBalance(t *testing.T) {
@@ -147,14 +193,13 @@ func TestTokenUnit(t *testing.T) {
 	}
 
 	param := chain.DefaultParamWithOrigin(pk.AccountID())
-
 	unit, _, err := tokenIns.QueryGetTokenUnit(param)
 	if err != nil {
 		t.Fatal("get_token_unit:", err)
 	}
 	fmt.Println("default unit:", unit.String())
 
-	newUnit := types.NewU256(*new(big.Int).SetUint64(10_000_000_000))
+	newUnit := types.NewU256(*new(big.Int).SetUint64(100_000_000 * Unit))
 	err = tokenIns.ExecSetTokenUnit(newUnit, chain.ExecParams{
 		Signer:    pk,
 		PayAmount: types.NewU128(*big.NewInt(0)),

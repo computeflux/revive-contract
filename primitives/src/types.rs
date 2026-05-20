@@ -47,3 +47,10 @@ pub enum AssetInfo {
     Native(Bytes),
     ERC20(Bytes, H256),
 }
+
+/// 统一地址类型（跨链兼容）
+#[derive(Clone, PartialEq, Eq, Debug, Encode, Decode)]
+pub struct UniAddr {
+    pub t: u32,
+    pub v: Bytes,
+}
