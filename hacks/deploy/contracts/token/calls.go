@@ -709,30 +709,6 @@ func (c *Token) QueryToPoints(
 	return v, gas, nil
 }
 
-func (c *Token) QueryToPointsDebug(
-	dot_amount types.U256, __ink_params chain.DryRunParams,
-) (*Tuple_21, *chain.DryRunReturnGas, error) {
-	if c.ChainClient.Debug {
-		fmt.Println()
-		util.LogWithPurple("[ DryRun   method ]", "to_points_debug")
-	}
-	v, gas, err := chain.DryRunInk[Tuple_21](
-		c,
-		__ink_params.Origin,
-		__ink_params.PayAmount,
-		__ink_params.GasLimit,
-		__ink_params.StorageDepositLimit,
-		util.InkContractInput{
-			Selector: "0x2ccac9fb",
-			Args:     []any{dot_amount},
-		},
-	)
-	if err != nil && !errors.Is(err, chain.ErrContractReverted) {
-		return nil, nil, err
-	}
-	return v, gas, nil
-}
-
 func (c *Token) QueryGetRate(
 	__ink_params chain.DryRunParams,
 ) (*types.U256, *chain.DryRunReturnGas, error) {

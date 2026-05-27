@@ -2,10 +2,12 @@ package contracts
 
 import (
 	"fmt"
+	"math/big"
 	"testing"
 
 	"wetee/test/contracts/subnet"
 
+	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	chain "github.com/wetee-dao/ink.go"
 	"github.com/wetee-dao/ink.go/util"
 )
@@ -198,6 +200,17 @@ func TestSubnetQueryNextEpochValidators(t *testing.T) {
 	}
 	if !next.IsErr {
 		fmt.Printf("Next epoch validators count: %d\n", len(next.V))
+	}
+}
+
+func TestSetEpoch(t *testing.T) {
+	ins, pk := newSubnetIns(t)
+	err := ins.ExecSetEpochSlot(7000, chain.ExecParams{
+		Signer:    pk,
+		PayAmount: types.NewU128(*big.NewInt(0)),
+	})
+	if err != nil {
+		t.Fatal("SetEpoch:", err)
 	}
 }
 

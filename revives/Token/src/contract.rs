@@ -34,7 +34,7 @@ pub use primitives::{UniAddr, ensure};
 pub struct EventRecord {
     pub target_contract: Vec<u8>,
     pub event_type: Vec<u8>,
-    pub event_data: Vec<u8>,
+    pub event_data: Vec<Vec<u8>>,
 }
 
 #[revive_contract]
@@ -173,14 +173,6 @@ pub mod token {
         dot_amount * rate / token_unit
     }
 
-    /// DOT → 积分换算 (只读) | DOT → points conversion (read-only)
-    #[revive(message)]
-    pub fn to_points_debug(dot_amount: U256) -> (U256, U256, U256, U256) {
-        let rate = RATE.get().unwrap_or(U256::from(1u64));
-        let token_unit = TOKEN_UNIT.get().unwrap_or(U256::from(10_000_000_000u64));
-        (dot_amount, rate, token_unit, dot_amount * rate / token_unit)
-    }
-
     #[revive(message)]
     pub fn get_rate() -> U256 {
         RATE.get().unwrap_or(U256::from(1u64))
@@ -249,17 +241,13 @@ pub mod token {
             let current = CREDITS.get(&caller).unwrap_or(U256::from(0u64));
             CREDITS.set(&caller, &(current + points));
 
-            emit_event(
-                b"gateway",
-                b"Recharge",
-                Encode::encode(&(
-                    UniAddr {
-                        t: 3,
-                        v: caller.as_ref().to_vec(),
-                    },
-                    points,
-                )),
-            );
+            let mut args = Vec::new();
+            args.push(Encode::encode(&UniAddr {
+                t: 2,
+                v: caller.as_ref().to_vec(),
+            }));
+            args.push(Encode::encode(&points));
+            emit_event(b"gateway", b"Recharge", args);
         }
     }
 
@@ -279,17 +267,13 @@ pub mod token {
         let current = CREDITS.get(&caller).unwrap_or(U256::from(0u64));
         CREDITS.set(&caller, &(current + points));
 
-        emit_event(
-            b"gateway",
-            b"Recharge",
-            Encode::encode(&(
-                UniAddr {
-                    t: 3,
-                    v: caller.as_ref().to_vec(),
-                },
-                points,
-            )),
-        );
+        let mut args = Vec::new();
+        args.push(Encode::encode(&UniAddr {
+            t: 2,
+            v: caller.as_ref().to_vec(),
+        }));
+        args.push(Encode::encode(&points));
+        emit_event(b"gateway", b"Recharge", args);
         Ok(points)
     }
 
@@ -314,17 +298,13 @@ pub mod token {
             .transfer(&user, &eth_amount)
             .map_err(|_| Error::TransferFailed)?;
 
-        emit_event(
-            b"gateway",
-            b"Withdraw",
-            Encode::encode(&(
-                UniAddr {
-                    t: 3,
-                    v: user.as_ref().to_vec(),
-                },
-                points,
-            )),
-        );
+        let mut args = Vec::new();
+        args.push(Encode::encode(&UniAddr {
+            t: 2,
+            v: user.as_ref().to_vec(),
+        }));
+        args.push(Encode::encode(&points));
+        emit_event(b"gateway", b"Withdraw", args);
         Ok(())
     }
 
@@ -344,7 +324,7 @@ pub mod token {
     }
 
     // ========== Relay 内部 ==========
-    fn emit_event(target_contract: &[u8], event_type: &[u8], event_data: Vec<u8>) {
+    fn emit_event(target_contract: &[u8], event_type: &[u8], event_data: Vec<Vec<u8>>) {
         let nonce = EVENT_NONCE.get().unwrap_or(0u64) + 1;
         EVENT_NONCE.set(&nonce);
         EVENTS.set(

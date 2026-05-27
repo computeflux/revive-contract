@@ -122,7 +122,7 @@ func TestSetRate(t *testing.T) {
 	oldRate, _, _ := tokenIns.QueryGetRate(param)
 	fmt.Println("old rate:", oldRate.String())
 
-	newRate := types.NewU256(*new(big.Int).SetUint64(2))
+	newRate := types.NewU256(*new(big.Int).SetUint64(20_0000))
 	err = tokenIns.ExecSetRate(newRate, chain.ExecParams{
 		Signer:    pk,
 		PayAmount: types.NewU128(*big.NewInt(0)),
@@ -155,12 +155,12 @@ func TestToPoints(t *testing.T) {
 	dots := new(big.Int).SetUint64(3 * Unit)
 	ethAmount := types.NewU256(*dots)
 
-	points, _, err := tokenIns.QueryToPointsDebug(ethAmount, param)
+	points, _, err := tokenIns.QueryToPoints(ethAmount, param)
 	if err != nil {
 		t.Fatal("to_points:", err)
 	}
 	fmt.Println(*points)
-	fmt.Println("3 DOT =", points.F3, "points")
+	fmt.Println("3 DOT =", points, "points")
 }
 
 func TestGetBalance(t *testing.T) {
@@ -182,7 +182,7 @@ func TestGetBalance(t *testing.T) {
 	fmt.Println("balance:", bal)
 }
 
-func TestTokenUnit(t *testing.T) {
+func TestSetTokenUnit(t *testing.T) {
 	cfg := loadConfig(t)
 	client := newClient(t, cfg)
 	pk := newSigner(t, cfg)

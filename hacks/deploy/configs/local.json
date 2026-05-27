@@ -1,46 +1,39 @@
 {
-  "url": "ws://127.0.0.1:9944",
-  "suri": "//Alice",
-  "contracts": {
-    "subnet": "0x9faed02b7624207dc0fedfded4842be33cad4eb3",
-    "token": ""
-  },
-  "genesis": {
-    "secrets": [
-      {
-        "name": "node0",
-        "ss58": "5G9jCxcTzRyQAwHKtcbXodVDXfeYTyeMdQxaP7hf1sNQhZ31",
-        "p_ss58": "5FKgVaCgpVKD8uC6z2bLFW23JUbQdYbFrX48po9NsZQmze5t",
-        "ip": "192.168.110.255",
-        "port": 20110,
-        "bls_validator_key": ""
-      },
-      {
-        "name": "node1",
-        "ss58": "5GnjKDE6ArHPqaAwETR4TF7XZbjHU4pytXomt57jJrEBjP75",
-        "p_ss58": "5EwWfJzsZFs3coDWKjNSWJRsTgXGfYfwoDr6ZH1HufUMzWMs",
-        "ip": "192.168.110.255",
-        "port": 20120,
-        "bls_validator_key": ""
-      },
-      {
-        "name": "node2",
-        "ss58": "5CQXegBto71RP1duknM8JWPkDZrPrqgxHutPjnvnpaz2qaRx",
-        "p_ss58": "5C8ynzqMj1D6a3vUbxds62Vp7iHFCr2Wpbffw6r2HbnWTN6D",
-        "ip": "192.168.110.255",
-        "port": 20130,
-        "bls_validator_key": ""
-      }
-    ],
-    "boot_nodes": [
-      0,
-      1,
-      2
-    ],
-    "validators": [
-      1,
-      2
-    ],
-    "region": "defalut"
-  }
+    "url": "ws://127.0.0.1:9944",
+    "suri": "//Alice",
+    "contracts": {
+        "subnet": "",
+        "token": ""
+    },
+    "genesis": {
+        "secrets": [
+            {
+                "name": "node0",
+                "ss58": "5G9jCxcTzRyQAwHKtcbXodVDXfeYTyeMdQxaP7hf1sNQhZ31",
+                "p_ss58": "5FKgVaCgpVKD8uC6z2bLFW23JUbQdYbFrX48po9NsZQmze5t",
+                "ip": "192.168.110.255",
+                "port": 20110,
+                "bls_validator_key": ""
+            },
+            {
+                "name": "node1",
+                "ss58": "5GnjKDE6ArHPqaAwETR4TF7XZbjHU4pytXomt57jJrEBjP75",
+                "p_ss58": "5EwWfJzsZFs3coDWKjNSWJRsTgXGfYfwoDr6ZH1HufUMzWMs",
+                "ip": "192.168.110.255",
+                "port": 20120,
+                "bls_validator_key": ""
+            },
+            {
+                "name": "node2",
+                "ss58": "5CQXegBto71RP1duknM8JWPkDZrPrqgxHutPjnvnpaz2qaRx",
+                "p_ss58": "5C8ynzqMj1D6a3vUbxds62Vp7iHFCr2Wpbffw6r2HbnWTN6D",
+                "ip": "192.168.110.255",
+                "port": 20130,
+                "bls_validator_key": ""
+            }
+        ],
+        "boot_nodes": [0, 1, 2],
+        "validators": [1, 2],
+        "region": "defalut"
+    }
 }
