@@ -108,36 +108,6 @@ func TestGetRate(t *testing.T) {
 	fmt.Println("rate:", rate.String())
 }
 
-func TestSetRate(t *testing.T) {
-	cfg := loadConfig(t)
-	client := newClient(t, cfg)
-	pk := newSigner(t, cfg)
-
-	tokenIns, err := token.InitTokenContract(client, cfg.Contracts.Token)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	param := chain.DefaultParamWithOrigin(pk.AccountID())
-	oldRate, _, _ := tokenIns.QueryGetRate(param)
-	fmt.Println("old rate:", oldRate.String())
-
-	newRate := types.NewU256(*new(big.Int).SetUint64(20_0000))
-	err = tokenIns.ExecSetRate(newRate, chain.ExecParams{
-		Signer:    pk,
-		PayAmount: types.NewU128(*big.NewInt(0)),
-	})
-	if err != nil {
-		t.Fatal("set_rate:", err)
-	}
-
-	rate, _, err := tokenIns.QueryGetRate(param)
-	if err != nil {
-		t.Fatal("get_rate:", err)
-	}
-	fmt.Println("new rate:", rate)
-}
-
 func TestToPoints(t *testing.T) {
 	cfg := loadConfig(t)
 	client := newClient(t, cfg)
@@ -180,6 +150,36 @@ func TestGetBalance(t *testing.T) {
 		t.Fatal("get_balance:", err)
 	}
 	fmt.Println("balance:", bal)
+}
+
+func TestSetRate(t *testing.T) {
+	cfg := loadConfig(t)
+	client := newClient(t, cfg)
+	pk := newSigner(t, cfg)
+
+	tokenIns, err := token.InitTokenContract(client, cfg.Contracts.Token)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	param := chain.DefaultParamWithOrigin(pk.AccountID())
+	oldRate, _, _ := tokenIns.QueryGetRate(param)
+	fmt.Println("old rate:", oldRate.String())
+
+	newRate := types.NewU256(*new(big.Int).SetUint64(20_0000))
+	err = tokenIns.ExecSetRate(newRate, chain.ExecParams{
+		Signer:    pk,
+		PayAmount: types.NewU128(*big.NewInt(0)),
+	})
+	if err != nil {
+		t.Fatal("set_rate:", err)
+	}
+
+	rate, _, err := tokenIns.QueryGetRate(param)
+	if err != nil {
+		t.Fatal("get_rate:", err)
+	}
+	fmt.Println("new rate:", rate)
 }
 
 func TestSetTokenUnit(t *testing.T) {

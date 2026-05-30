@@ -2,8 +2,8 @@
     "url": "wss://asset-hub-paseo-rpc.n.dwellir.com",
     "suri": "0x43c0defe545b31e6f64ee9c17b35c6444a8c3527f0c68160203717c51367512d",
     "contracts": {
-        "subnet": "0xd521e67f086bde744531e4f94eaaa1304c0fd0c2",
-        "token": "0xdd74b788be939843568cf0882840615416eede98"
+        "subnet": "0xc8b906a60fba4e36685214645a1a944ff749e34c",
+        "token": "0x546689e0275ac5403a8b9670fb8094ed80946162"
     },
     "genesis": {
         "secrets": [
@@ -19,7 +19,7 @@
                 "name": "node1",
                 "ss58": "5EkxGjeEUc26BTb5mnL74NMK61Y2g6Bz6xUZYVCEMgobY45F",
                 "p_ss58": "5DqSrXbVGNyoUnMiyyoQQgaaZCB2whaYic58i6VRiFsWMk4g",
-                "ip": "192.168.110.205",
+                "ip": "47.79.98.142",
                 "port": 30126,
                 "bls_validator_key": "a7333549b414cdc6203310f4739fc849ac6db63e683d8fdc0ffd7f21069c1c4f3d0a01ce72ddb9d58fe6daa4694bee33083acdd2a41a08ad9cf046ad2af60ddf3288b874662ba5899c0443421b62a916ca9360b1028777193d6d7325fe4334fc"
             },
