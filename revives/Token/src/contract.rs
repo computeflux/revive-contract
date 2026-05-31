@@ -24,7 +24,6 @@ mod tests;
 
 use pallet_revive_uapi::CallFlags;
 use parity_scale_codec::Encode;
-use pvm_contract_sdk::SolType;
 use wrevive_api::*;
 use wrevive_macro::{mapping, revive_contract, storage};
 
@@ -274,24 +273,17 @@ pub mod token {
         U256::from(list.len() as u64)
     }
 
-    /// 返回 ERC20 代币列表（4个定长数组 + count）
+    /// 返回 ERC20 代币列表 | Return ERC20 token list
     #[revive(message, sol)]
-    pub fn get_erc20_list() -> ([Address; 10], [bool; 10], [U256; 10], [U256; 10], U256) {
+    pub fn get_erc20_list() -> Vec<(Address, bool, U256, U256)> {
         let list = ERC20_TOKEN_LIST.get().unwrap_or_default();
-        let mut addrs = [Address::zero(); 10];
-        let mut actives = [false; 10];
-        let mut rates = [U256::from(0u64); 10];
-        let mut units = [U256::from(0u64); 10];
-        let count = list.len().min(10);
-        for i in 0..count {
-            if let Some(c) = ERC20_TOKENS.get(&list[i]) {
-                addrs[i] = list[i];
-                actives[i] = c.active;
-                rates[i] = c.rate;
-                units[i] = c.unit;
+        let mut result = Vec::with_capacity(list.len());
+        for addr in &list {
+            if let Some(c) = ERC20_TOKENS.get(addr) {
+                result.push((*addr, c.active, c.rate, c.unit));
             }
         }
-        (addrs, actives, rates, units, U256::from(count as u64))
+        result
     }
 
     // ========== 默认充值（fallback） ==========

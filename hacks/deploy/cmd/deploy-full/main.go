@@ -79,6 +79,11 @@ func ipToUint32(ipStr string) (uint32, error) {
 	return uint32(ipv4[0])<<24 | uint32(ipv4[1])<<16 | uint32(ipv4[2])<<8 | uint32(ipv4[3]), nil
 }
 
+// isIP checks whether the given string is a valid IPv4 or IPv6 address.
+func isIP(s string) bool {
+	return net.ParseIP(s) != nil
+}
+
 func main() {
 	var (
 		network uint
@@ -264,9 +269,24 @@ func initSubnet(client *chain.ChainClient, pk chain.Signer, subnetAddress string
 		if err != nil {
 			panic(fmt.Sprintf("invalid p_ss58 %s: %v", node.PSS58, err))
 		}
-		ipv4, err := ipToUint32(node.Ip)
-		if err != nil {
-			panic(fmt.Sprintf("invalid ip %s: %v", node.Ip, err))
+		var nodeIp subnet.Ip
+		if isIP(node.Ip) {
+			ipv4, err := ipToUint32(node.Ip)
+			if err != nil {
+				panic(fmt.Sprintf("invalid ip %s: %v", node.Ip, err))
+			}
+			nodeIp = subnet.Ip{
+				Ipv4:   util.NewSome(ipv4),
+				Ipv6:   util.NewNone[types.U128](),
+				Domain: util.NewNone[[]byte](),
+			}
+		} else {
+			// Treat as domain name
+			nodeIp = subnet.Ip{
+				Ipv4:   util.NewNone[uint32](),
+				Ipv6:   util.NewNone[types.U128](),
+				Domain: util.NewSome([]byte(node.Ip)),
+			}
 		}
 		// Decode BLS validator key from hex
 		blsKey, _ := hex.DecodeString(node.BlsValidatorKey)
@@ -274,11 +294,7 @@ func initSubnet(client *chain.ChainClient, pk chain.Signer, subnetAddress string
 			[]byte(node.Name),
 			v.AccountID(),
 			p.AccountID(),
-			subnet.Ip{
-				Ipv4:   util.NewSome(ipv4),
-				Ipv6:   util.NewNone[types.U128](),
-				Domain: util.NewNone[[]byte](),
-			},
+			nodeIp,
 			node.Port,
 			blsKey,
 			_call,

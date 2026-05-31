@@ -514,12 +514,15 @@ fn get_erc20_list_returns_registered_tokens() {
     let addr2 = Address::from([50u8; 20]);
     let _ = token::set_erc20_token(addr2, true, U256::from(500u64), U256::from(10_000u64));
     assert_eq!(token::get_erc20_count(), U256::from(2u64));
-    // get_erc20_list 返回定长数组
-    let (addrs, actives, rates, units, count) = token::get_erc20_list();
-    assert_eq!(count, U256::from(2u64));
-    assert_eq!(addrs[0], erc20_addr());
-    assert!(actives[0]);
-    assert_eq!(addrs[1], addr2);
+    // get_erc20_list 返回 Vec
+    let list = token::get_erc20_list();
+    assert_eq!(list.len(), 2);
+    assert_eq!(list[0].0, erc20_addr());
+    assert!(list[0].1);
+    assert_eq!(list[1].0, addr2);
+    assert_eq!(list[1].1, true);
+    assert_eq!(list[1].2, U256::from(500u64));
+    assert_eq!(list[1].3, U256::from(10_000u64));
     // 更新已有代币不增加数量
     let _ = token::set_erc20_token(
         erc20_addr(),

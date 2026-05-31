@@ -2,8 +2,8 @@
     "url": "wss://asset-hub-paseo-rpc.n.dwellir.com",
     "suri": "0x43c0defe545b31e6f64ee9c17b35c6444a8c3527f0c68160203717c51367512d",
     "contracts": {
-        "subnet": "0xc8b906a60fba4e36685214645a1a944ff749e34c",
-        "token": "0x546689e0275ac5403a8b9670fb8094ed80946162"
+        "subnet": "0x4b9dc2fea1576f638776406491794125f8175535",
+        "token": "0x3a9d7e869419aa3c076cf80328751063d62a6a31"
     },
     "genesis": {
         "secrets": [
@@ -11,7 +11,7 @@
                 "name": "node0",
                 "ss58": "5EC7yhh6XQwsFkZ8Y5DvF9S3FDLqekZH3UDat8h1GVgfJDGx",
                 "p_ss58": "5EoA4sqBZSMT9zntFN6KFPmnzfeExBsMk5rrGyMcyT71Vmh4",
-                "ip": "192.168.110.205",
+                "ip": "xiaobai.asyou.me",
                 "port": 30116,
                 "bls_validator_key": "817ba47aaef600a9dad6888dd239c21caaf27c0d4cb1a0cdc1f2d5902c54e460f4baf80986fc083a5f96e8fbff6c03500f00f22658368f84ca6bdfd8ec752ffbc4818b03516c975d9a7bb5fb23de42d8ab52ee7eae4b539f252c2d0842155471"
             },
@@ -27,7 +27,7 @@
                 "name": "node2",
                 "ss58": "5CkHHU3FVdqae42zV7fMHvze7735bP2CZFDmZXZteCjzx21M",
                 "p_ss58": "5HNCudE1YenyHrntQ4MmEuLuFWG7DHfyHkrj18eqrQEbU79j",
-                "ip": "192.168.110.205",
+                "ip": "xiaobai.asyou.me",
                 "port": 30136,
                 "bls_validator_key": "997074436ebca9ab7150c39211d6cfbbec023751537b07f8001fbe20927055d01e3abaf68581fcd476824477e08d16dc179d72707e08845072302afcf2b5255c1ff3d6c3ca07a3d7370769acf0eeb7eee1d5f53afa9732ddcdf7b1b065310c35"
             }
