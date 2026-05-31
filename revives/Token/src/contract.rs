@@ -22,7 +22,9 @@ mod errors;
 #[cfg(test)]
 mod tests;
 
+use pallet_revive_uapi::CallFlags;
 use parity_scale_codec::Encode;
+use pvm_contract_sdk::SolType;
 use wrevive_api::*;
 use wrevive_macro::{mapping, revive_contract, storage};
 
@@ -37,6 +39,14 @@ pub struct EventRecord {
     pub event_data: Vec<Vec<u8>>,
 }
 
+/// ERC20 代币配置 | ERC20 token config
+#[derive(Clone, Encode, Decode, Debug, PartialEq, Eq)]
+pub struct ERC20TokenConfig {
+    pub active: bool,
+    pub rate: U256,
+    pub unit: U256,
+}
+
 #[revive_contract]
 pub mod token {
     use super::*;
@@ -44,12 +54,16 @@ pub mod token {
 
     const OWNER: Storage<Address> = storage!(b"owner");
     const SUBNET: Storage<Address> = storage!(b"subnet");
+
     /// 兑换率: 1 DOT = RATE 积分 | RATE points per 1 DOT
     const RATE: Storage<U256> = storage!(b"rate");
     /// 主链币最小单位 (DOT=10^15 Planck, ETH=10^18 Wei)
     const TOKEN_UNIT: Storage<U256> = storage!(b"token_unit");
-    /// 用户积分余额 (1 积分 ≈ 1/1000 USD)
-    const CREDITS: Mapping<Address, U256> = mapping!(b"credits");
+    /// ERC20 代币注册表: token_address → config
+    const ERC20_TOKENS: Mapping<Address, ERC20TokenConfig> = mapping!(b"erc20_tokens");
+    /// ERC20 代币地址列表（用于遍历查询）
+    const ERC20_TOKEN_LIST: Storage<Vec<Address>> = storage!(b"erc20_token_list");
+
     /// 全局事件 nonce
     const EVENT_NONCE: Storage<u64> = storage!(b"event_nonce");
     /// 事件存储: nonce → EventRecord
@@ -71,10 +85,10 @@ pub mod token {
         let owner_addr = owner.unwrap_or(api.caller());
         OWNER.set(&owner_addr);
         if RATE.get().is_none() {
-            RATE.set(&U256::from(1u64));
+            RATE.set(&U256::from(4000u64));
         } // $4/DOT → $1=1000pt
         if TOKEN_UNIT.get().is_none() {
-            TOKEN_UNIT.set(&U256::from(10_000_000_000u64));
+            TOKEN_UNIT.set(&U256::from(1_000_000_000_000_000u64));
         } // DOT: 10^15 Planck
         if EVENT_NONCE.get().is_none() {
             EVENT_NONCE.set(&0u64);
@@ -110,6 +124,31 @@ pub mod token {
         Ok(())
     }
 
+    // ========== ERC20 管理 ==========
+
+    /// 注册/更新 ERC20 代币 | Register / update ERC20 token
+    #[revive(message, write)]
+    pub fn set_erc20_token(
+        token: Address,
+        active: bool,
+        rate: U256,
+        unit: U256,
+    ) -> Result<(), Error> {
+        ensure_owner()?;
+        ensure!(token != Address::zero(), Error::ZeroAddress);
+        ensure!(unit > U256::from(0u64), Error::AmountMustBeGreaterThanZero);
+
+        // 新代币加入列表
+        if ERC20_TOKENS.get(&token).is_none() {
+            let mut list = ERC20_TOKEN_LIST.get().unwrap_or_default();
+            list.push(token);
+            ERC20_TOKEN_LIST.set(&list);
+        }
+
+        ERC20_TOKENS.set(&token, &ERC20TokenConfig { active, rate, unit });
+        Ok(())
+    }
+
     // ========== 充值/提现 (SCALE) ==========
     #[revive(message, write, payable)]
     pub fn recharge() -> Result<U256, Error> {
@@ -121,6 +160,11 @@ pub mod token {
         withdraw_impl(user, points)
     }
 
+    #[revive(message, write)]
+    pub fn withdraw_erc20(token: Address, user: Address, points: U256) -> Result<(), Error> {
+        withdraw_erc20_impl(token, user, points)
+    }
+
     // ========== 充值/提现 (Sol ABI) ==========
     #[revive(message, write, payable, sol)]
     pub fn recharge_sol() -> Result<U256, Error> {
@@ -128,8 +172,8 @@ pub mod token {
     }
 
     #[revive(message, write, sol)]
-    pub fn withdraw_sol(user: Address, points: U256) -> Result<(), Error> {
-        withdraw_impl(user, points)
+    pub fn recharge_erc20(token: Address, amount: U256) -> Result<U256, Error> {
+        recharge_erc20_impl(token, amount)
     }
 
     // ========== Relay 查询 ==========
@@ -160,27 +204,27 @@ pub mod token {
     }
 
     // ========== 查询 (SCALE) ==========
-    #[revive(message)]
-    pub fn get_balance(user: Address) -> U256 {
-        CREDITS.get(&user).unwrap_or(U256::from(0u64))
-    }
 
     /// DOT → 积分换算 (只读) | DOT → points conversion (read-only)
     #[revive(message)]
     pub fn to_points(dot_amount: U256) -> U256 {
-        let rate = RATE.get().unwrap_or(U256::from(1u64));
-        let token_unit = TOKEN_UNIT.get().unwrap_or(U256::from(10_000_000_000u64));
+        let rate = RATE.get().unwrap_or(U256::from(4000u64));
+        let token_unit = TOKEN_UNIT
+            .get()
+            .unwrap_or(U256::from(1_000_000_000_000_000u64));
         dot_amount * rate / token_unit
     }
 
     #[revive(message)]
     pub fn get_rate() -> U256 {
-        RATE.get().unwrap_or(U256::from(1u64))
+        RATE.get().unwrap_or(U256::from(4000u64))
     }
 
     #[revive(message)]
     pub fn get_token_unit() -> U256 {
-        TOKEN_UNIT.get().unwrap_or(U256::from(10_000_000_000u64))
+        TOKEN_UNIT
+            .get()
+            .unwrap_or(U256::from(1_000_000_000_000_000u64))
     }
 
     #[revive(message)]
@@ -194,21 +238,19 @@ pub mod token {
     }
 
     // ========== 查询 (Sol ABI) ==========
-    #[revive(message, sol)]
-    pub fn get_balance_sol(user: Address) -> U256 {
-        CREDITS.get(&user).unwrap_or(U256::from(0u64))
-    }
 
     #[revive(message, sol)]
     pub fn to_points_sol(dot_amount: U256) -> U256 {
-        let rate = RATE.get().unwrap_or(U256::from(1u64));
-        let token_unit = TOKEN_UNIT.get().unwrap_or(U256::from(10_000_000_000u64));
+        let rate = RATE.get().unwrap_or(U256::from(4000u64));
+        let token_unit = TOKEN_UNIT
+            .get()
+            .unwrap_or(U256::from(1_000_000_000_000_000u64));
         dot_amount * rate / token_unit
     }
 
     #[revive(message, sol)]
     pub fn get_rate_sol() -> U256 {
-        RATE.get().unwrap_or(U256::from(1u64))
+        RATE.get().unwrap_or(U256::from(4000u64))
     }
 
     #[revive(message, sol)]
@@ -216,18 +258,40 @@ pub mod token {
         OWNER.get().unwrap_or(Address::zero())
     }
 
-    // ========== 管理 ==========
-    #[revive(message, write)]
-    pub fn emergency_withdraw() -> Result<(), Error> {
-        ensure_owner()?;
-        let api = env();
-        let contract_balance = api.balance();
-        if contract_balance > U256::from(0u64) {
-            let owner_addr = OWNER.get().unwrap_or(Address::zero());
-            api.transfer(&owner_addr, &contract_balance)
-                .map_err(|_| Error::TransferFailed)?;
+    // ========== ERC20 查询 ==========
+    #[revive(message, sol)]
+    pub fn get_erc20_config(token: Address) -> (bool, U256, U256) {
+        match ERC20_TOKENS.get(&token) {
+            Some(c) => (c.active, c.rate, c.unit),
+            None => (false, U256::from(0u64), U256::from(0u64)),
         }
-        Ok(())
+    }
+
+    /// 已注册 ERC20 代币数量
+    #[revive(message, sol)]
+    pub fn get_erc20_count() -> U256 {
+        let list = ERC20_TOKEN_LIST.get().unwrap_or_default();
+        U256::from(list.len() as u64)
+    }
+
+    /// 返回 ERC20 代币列表（4个定长数组 + count）
+    #[revive(message, sol)]
+    pub fn get_erc20_list() -> ([Address; 10], [bool; 10], [U256; 10], [U256; 10], U256) {
+        let list = ERC20_TOKEN_LIST.get().unwrap_or_default();
+        let mut addrs = [Address::zero(); 10];
+        let mut actives = [false; 10];
+        let mut rates = [U256::from(0u64); 10];
+        let mut units = [U256::from(0u64); 10];
+        let count = list.len().min(10);
+        for i in 0..count {
+            if let Some(c) = ERC20_TOKENS.get(&list[i]) {
+                addrs[i] = list[i];
+                actives[i] = c.active;
+                rates[i] = c.rate;
+                units[i] = c.unit;
+            }
+        }
+        (addrs, actives, rates, units, U256::from(count as u64))
     }
 
     // ========== 默认充值（fallback） ==========
@@ -238,9 +302,8 @@ pub mod token {
         if value > U256::from(0u64) {
             let points = value_to_points(value);
             let caller = api.caller();
-            let current = CREDITS.get(&caller).unwrap_or(U256::from(0u64));
-            CREDITS.set(&caller, &(current + points));
 
+            // 积分由 TEE 子链管理，合约只发事件
             let mut args = Vec::new();
             args.push(Encode::encode(&UniAddr {
                 t: 2,
@@ -264,9 +327,7 @@ pub mod token {
         );
 
         let caller = api.caller();
-        let current = CREDITS.get(&caller).unwrap_or(U256::from(0u64));
-        CREDITS.set(&caller, &(current + points));
-
+        // 积分由 TEE 子链管理，合约只发事件
         let mut args = Vec::new();
         args.push(Encode::encode(&UniAddr {
             t: 2,
@@ -284,16 +345,13 @@ pub mod token {
             Error::AmountMustBeGreaterThanZero
         );
 
-        let balance = CREDITS.get(&user).unwrap_or(U256::from(0u64));
-        ensure!(balance >= points, Error::InsufficientBalance);
-
+        // 积分余额由 TEE 子链校验，合约只负责转账
         let eth_amount = points_to_value(points);
         ensure!(
             eth_amount > U256::from(0u64),
             Error::AmountMustBeGreaterThanZero
         );
 
-        CREDITS.set(&user, &(balance - points));
         env()
             .transfer(&user, &eth_amount)
             .map_err(|_| Error::TransferFailed)?;
@@ -308,18 +366,88 @@ pub mod token {
         Ok(())
     }
 
+    // ========== ERC20 内部实现 ==========
+    fn recharge_erc20_impl(token: Address, amount: U256) -> Result<U256, Error> {
+        let config = ensure_erc20_active(&token)?;
+        ensure!(
+            amount > U256::from(0u64),
+            Error::AmountMustBeGreaterThanZero
+        );
+
+        let caller = env().caller();
+        let contract_addr = env().address();
+
+        // 调用 ERC20.transferFrom(caller, self, amount)
+        let calldata = build_transfer_from_calldata(&caller, &contract_addr, amount);
+        let _ = call_erc20(&token, &calldata).map_err(|_| Error::ERC20TransferFailed)?;
+
+        // 换算积分: points = amount * rate / unit
+        let points = amount * config.rate / config.unit;
+        ensure!(
+            points > U256::from(0u64),
+            Error::AmountMustBeGreaterThanZero
+        );
+
+        // 积分由 TEE 子链管理，合约只发事件
+        let mut args = Vec::new();
+        args.push(Encode::encode(&UniAddr {
+            t: 2,
+            v: caller.as_ref().to_vec(),
+        }));
+        args.push(Encode::encode(&token));
+        args.push(Encode::encode(&amount));
+        args.push(Encode::encode(&points));
+        emit_event(b"gateway", b"RechargeERC20", args);
+        Ok(points)
+    }
+
+    fn withdraw_erc20_impl(token: Address, user: Address, points: U256) -> Result<(), Error> {
+        ensure_subnet()?;
+        let config = ensure_erc20_active(&token)?;
+        ensure!(
+            points > U256::from(0u64),
+            Error::AmountMustBeGreaterThanZero
+        );
+
+        // 换算 ERC20 数量: amount = points * unit / rate
+        let amount = points * config.unit / config.rate;
+        ensure!(
+            amount > U256::from(0u64),
+            Error::AmountMustBeGreaterThanZero
+        );
+
+        // 调用 ERC20.transfer(user, amount)
+        let calldata = build_transfer_calldata(&user, amount);
+        let _ = call_erc20(&token, &calldata).map_err(|_| Error::ERC20TransferFailed)?;
+
+        let mut args = Vec::new();
+        args.push(Encode::encode(&UniAddr {
+            t: 2,
+            v: user.as_ref().to_vec(),
+        }));
+        args.push(Encode::encode(&token));
+        args.push(Encode::encode(&amount));
+        args.push(Encode::encode(&points));
+        emit_event(b"gateway", b"WithdrawERC20", args);
+        Ok(())
+    }
+
     // ========== 积分换算 ==========
     /// Planck → 积分: value * RATE / TOKEN_UNIT
     fn value_to_points(value: U256) -> U256 {
-        let rate = RATE.get().unwrap_or(U256::from(1u64));
-        let unit = TOKEN_UNIT.get().unwrap_or(U256::from(10_000_000_000u64));
+        let rate = RATE.get().unwrap_or(U256::from(4000u64));
+        let unit = TOKEN_UNIT
+            .get()
+            .unwrap_or(U256::from(1_000_000_000_000_000u64));
         value * rate / unit
     }
 
     /// 积分 → Planck: points * TOKEN_UNIT / RATE
     fn points_to_value(points: U256) -> U256 {
-        let rate = RATE.get().unwrap_or(U256::from(1u64));
-        let unit = TOKEN_UNIT.get().unwrap_or(U256::from(10_000_000_000u64));
+        let rate = RATE.get().unwrap_or(U256::from(4000u64));
+        let unit = TOKEN_UNIT
+            .get()
+            .unwrap_or(U256::from(1_000_000_000_000_000u64));
         points * unit / rate
     }
 
@@ -350,5 +478,58 @@ pub mod token {
         let owner = OWNER.get().unwrap_or(Address::zero());
         ensure!(caller == owner, Error::OnlyOwner);
         Ok(())
+    }
+
+    /// 校验 ERC20 已注册且激活 | Ensure ERC20 token registered and active
+    fn ensure_erc20_active(token: &Address) -> Result<ERC20TokenConfig, Error> {
+        let config = ERC20_TOKENS.get(token).ok_or(Error::ERC20NotSupported)?;
+        if !config.active {
+            return Err(Error::ERC20Inactive);
+        }
+        Ok(config)
+    }
+
+    /// 调用 ERC20 合约 (EVM call) | Call ERC20 contract via call_evm
+    fn call_erc20(token: &Address, calldata: &[u8]) -> Result<(), Error> {
+        let api = env();
+        let mut output = [0u8; 32];
+        let mut out_slice: &mut [u8] = &mut output;
+        api.call_evm(
+            CallFlags::empty(),
+            token,
+            u64::MAX,
+            &U256::from(0u64),
+            calldata,
+            Some(&mut out_slice),
+        )
+        .map_err(|_| Error::ERC20TransferFailed)?;
+        // 解析 bool 返回值 (32 bytes 大端, 最后 1 byte 为 true/false)
+        if out_slice.len() >= 32 && out_slice[31] != 0 {
+            Ok(())
+        } else {
+            Err(Error::ERC20TransferFailed)
+        }
+    }
+
+    /// 构造 transfer(address,uint256) calldata
+    fn build_transfer_calldata(to: &Address, amount: U256) -> Vec<u8> {
+        let mut data = Vec::with_capacity(4 + 32 + 32);
+        data.extend_from_slice(&[0xa9, 0x05, 0x9c, 0xbb]); // selector
+        data.extend_from_slice(&[0u8; 12]); // left-pad address
+        data.extend_from_slice(to.as_ref());
+        data.extend_from_slice(&amount.to_be_bytes()); // 大端
+        data
+    }
+
+    /// 构造 transferFrom(address,address,uint256) calldata
+    fn build_transfer_from_calldata(from: &Address, to: &Address, amount: U256) -> Vec<u8> {
+        let mut data = Vec::with_capacity(4 + 32 * 3);
+        data.extend_from_slice(&[0x23, 0xb8, 0x72, 0xdd]); // selector
+        data.extend_from_slice(&[0u8; 12]); // left-pad from
+        data.extend_from_slice(from.as_ref());
+        data.extend_from_slice(&[0u8; 12]); // left-pad to
+        data.extend_from_slice(to.as_ref());
+        data.extend_from_slice(&amount.to_be_bytes()); // 大端
+        data
     }
 }

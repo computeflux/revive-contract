@@ -16,4 +16,10 @@ pub enum Error {
     TransferFailed,
     /// 零地址
     ZeroAddress,
+    /// ERC20 代币未注册
+    ERC20NotSupported,
+    /// ERC20 代币已停用
+    ERC20Inactive,
+    /// ERC20 转账失败 (EVM call 失败)
+    ERC20TransferFailed,
 }

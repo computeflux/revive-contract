@@ -24,6 +24,7 @@ alloy-core = { version = "1.5", default-features = false, features = ["sol-types
 pallet-revive-uapi = { version = "0.11", default-features = false }
 parity-scale-codec = { version = "3", default-features = false, features = ["derive"] }
 pvm-contract-types = { git = "https://github.com/paritytech/cargo-pvm-contract", branch = "main" }
+pvm-contract-sdk = { git = "https://github.com/paritytech/cargo-pvm-contract", branch = "main" }
 wrevive-macro = { workspace = true }
 wrevive-api = { workspace = true, features = ["on_chain"] }
 primitives = { workspace = true }

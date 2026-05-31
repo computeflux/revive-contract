@@ -1,0 +1,44 @@
+{
+  "rpc_url": "",
+  "chain_id": 1,
+  "hardhat_network": "mainnet",
+  "genesis": {
+    "epoch_slot": 72000,
+    "region": "default",
+    "regions": ["asia-east", "europe", "north-america"],
+    "level_prices": [
+      { "level": 0, "cpu": 1, "mem": 1, "storage_amount": 1, "network": 1 },
+      {
+        "level": 1,
+        "cpu": 100,
+        "mem": 100,
+        "storage_amount": 100,
+        "network": 100
+      },
+      {
+        "level": 2,
+        "cpu": 1000,
+        "mem": 1000,
+        "storage_amount": 1000,
+        "network": 1000
+      }
+    ],
+    "min_mortgage": 100000000000000,
+    "level_min_mortgages": [
+      { "level": 0, "amount": 100000000000000 },
+      { "level": 1, "amount": 500000000000000 },
+      { "level": 2, "amount": 1000000000000000 }
+    ],
+    "assets": [
+      {
+        "name": "T",
+        "asset_type": 0,
+        "total_supply": 1000000000,
+        "price": 1000
+      }
+    ],
+    "secrets": [],
+    "boot_nodes": [],
+    "workers": []
+  }
+}

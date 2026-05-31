@@ -19,7 +19,7 @@ fn subnet_addr() -> Address {
 fn setup_deployed_and_inited() {
     with_engine(|e| {
         e.reset();
-        e.set_caller(alice().0);
+        e.set_caller(alice().into());
         e.set_call_data(&[]);
     });
     let _ = token::new();
@@ -27,6 +27,7 @@ fn setup_deployed_and_inited() {
 }
 
 /// 部署 + 初始化，设小 TOKEN_UNIT 方便测试
+/// unit=1, rate=1000 → value * 1000 / 1 = value * 1000 (方便验算)
 fn setup_with_unit(unit: U256, rate: U256) {
     setup_deployed_and_inited();
     let _ = token::set_token_unit(unit);
@@ -55,7 +56,7 @@ fn set_token_unit_works() {
 #[test]
 fn set_token_unit_by_non_owner_fails() {
     setup_deployed_and_inited();
-    with_engine(|e| e.set_caller(bob().0));
+    with_engine(|e| e.set_caller(bob().into()));
     let res = token::set_token_unit(U256::from(1u64));
     assert_eq!(res, Err(Error::OnlyOwner));
 }
@@ -78,16 +79,16 @@ fn to_points_with_unit() {
 }
 
 #[test]
-fn recharge_converts_planck_to_points() {
+fn recharge_returns_points() {
     // unit=1000, rate=2 → 5000 Planck = 10 积分
     setup_with_unit(U256::from(1000u64), U256::from(2u64));
     with_engine(|e| {
-        e.set_caller(alice().0);
+        e.set_caller(alice().into());
         e.value_transferred = U256::from(5000u64);
     });
     let points = token::recharge().unwrap();
     assert_eq!(points, U256::from(10u64));
-    assert_eq!(token::get_balance(alice()), U256::from(10u64));
+    // 积分由 TEE 管理，合约不存储余额
 }
 
 #[test]
@@ -95,17 +96,18 @@ fn recharge_accumulates_points() {
     setup_with_unit(U256::from(1000u64), U256::from(2u64));
     // 第一次: 5000 Planck → 10 积分
     with_engine(|e| {
-        e.set_caller(alice().0);
+        e.set_caller(alice().into());
         e.value_transferred = U256::from(5000u64);
     });
-    let _ = token::recharge().unwrap();
+    let p1 = token::recharge().unwrap();
+    assert_eq!(p1, U256::from(10u64));
     // 第二次: 2000 Planck → 4 积分
     with_engine(|e| {
-        e.set_caller(alice().0);
+        e.set_caller(alice().into());
         e.value_transferred = U256::from(2000u64);
     });
-    let _ = token::recharge().unwrap();
-    assert_eq!(token::get_balance(alice()), U256::from(14u64));
+    let p2 = token::recharge().unwrap();
+    assert_eq!(p2, U256::from(4u64));
 }
 
 #[test]
@@ -113,7 +115,7 @@ fn recharge_small_value_gives_zero_points() {
     // unit=1000, rate=2 → 400 Planck = 0 积分 (截断)
     setup_with_unit(U256::from(1000u64), U256::from(2u64));
     with_engine(|e| {
-        e.set_caller(alice().0);
+        e.set_caller(alice().into());
         e.value_transferred = U256::from(400u64);
     });
     let res = token::recharge();
@@ -121,32 +123,32 @@ fn recharge_small_value_gives_zero_points() {
 }
 
 #[test]
-fn withdraw_converts_points_to_planck() {
+fn withdraw_returns_native_coin() {
     setup_with_unit(U256::from(1000u64), U256::from(2u64));
     let _ = token::set_subnet(subnet_addr());
 
-    // Alice 充 5000 Planck → 10 积分
+    // Alice 充 5000 Planck
     with_engine(|e| {
-        e.set_caller(alice().0);
+        e.set_caller(alice().into());
         e.value_transferred = U256::from(5000u64);
     });
     let _ = token::recharge().unwrap();
 
-    // Subnet 提 6 积分 → 3000 Planck 转给 Alice
-    with_engine(|e| e.set_caller(subnet_addr().0));
-    let _ = token::withdraw(alice(), U256::from(6u64));
-    assert_eq!(token::get_balance(alice()), U256::from(4u64));
+    // Subnet 提 6 积分 → 3000 Planck 转给 Alice（积分余额由 TEE 校验）
+    with_engine(|e| e.set_caller(subnet_addr().into()));
+    let res = token::withdraw(alice(), U256::from(6u64));
+    assert_eq!(res, Ok(()));
 }
 
 #[test]
 fn fallback_uses_conversion() {
     setup_with_unit(U256::from(1000u64), U256::from(2u64));
     with_engine(|e| {
-        e.set_caller(alice().0);
+        e.set_caller(alice().into());
         e.value_transferred = U256::from(3000u64);
     });
+    // fallback 不 panic 即成功（积分由 TEE 管理）
     token::fallback();
-    assert_eq!(token::get_balance(alice()), U256::from(6u64));
 }
 
 // ========== 部署与初始化 ==========
@@ -161,7 +163,6 @@ fn deploy_and_default_values() {
         U256::from(1_000_000_000_000_000u64)
     );
     assert_eq!(token::get_subnet(), Address::zero());
-    assert_eq!(token::get_balance(alice()), U256::from(0u64));
 }
 
 #[test]
@@ -183,7 +184,7 @@ fn set_subnet_works() {
 #[test]
 fn set_subnet_by_non_owner_fails() {
     setup_deployed_and_inited();
-    with_engine(|e| e.set_caller(bob().0));
+    with_engine(|e| e.set_caller(bob().into()));
     let res = token::set_subnet(subnet_addr());
     assert_eq!(res, Err(Error::OnlyOwner));
 }
@@ -206,7 +207,7 @@ fn set_rate_works() {
 #[test]
 fn set_rate_by_non_owner_fails() {
     setup_deployed_and_inited();
-    with_engine(|e| e.set_caller(bob().0));
+    with_engine(|e| e.set_caller(bob().into()));
     let res = token::set_rate(U256::from(2000u64));
     assert_eq!(res, Err(Error::OnlyOwner));
 }
@@ -222,21 +223,20 @@ fn set_rate_zero_fails() {
 
 #[test]
 fn recharge_works() {
-    setup_deployed_and_inited();
+    setup_with_unit(U256::from(1u64), U256::from(1000u64));
     with_engine(|e| {
-        e.set_caller(alice().0);
+        e.set_caller(alice().into());
         e.value_transferred = U256::from(5u64);
     });
     let points = token::recharge().unwrap();
     assert_eq!(points, U256::from(5000u64)); // 5 * 1000
-    assert_eq!(token::get_balance(alice()), U256::from(5u64));
 }
 
 #[test]
 fn recharge_zero_value_fails() {
     setup_deployed_and_inited();
     with_engine(|e| {
-        e.set_caller(alice().0);
+        e.set_caller(alice().into());
         e.value_transferred = U256::from(0u64);
     });
     let res = token::recharge();
@@ -244,91 +244,73 @@ fn recharge_zero_value_fails() {
 }
 
 #[test]
-fn recharge_accumulates_balance() {
-    setup_deployed_and_inited();
-    // 第一次充值
+fn recharge_multiple_times_succeeds() {
+    setup_with_unit(U256::from(1u64), U256::from(1000u64));
     with_engine(|e| {
-        e.set_caller(alice().0);
+        e.set_caller(alice().into());
         e.value_transferred = U256::from(3u64);
     });
     let _ = token::recharge().unwrap();
-    // 第二次充值
     with_engine(|e| {
-        e.set_caller(alice().0);
+        e.set_caller(alice().into());
         e.value_transferred = U256::from(2u64);
     });
     let _ = token::recharge().unwrap();
-    assert_eq!(token::get_balance(alice()), U256::from(5u64));
+    // 积分由 TEE 管理，不检查合约内余额
 }
 
 #[test]
 fn recharge_different_users() {
-    setup_deployed_and_inited();
+    setup_with_unit(U256::from(1u64), U256::from(1000u64));
     with_engine(|e| {
-        e.set_caller(alice().0);
+        e.set_caller(alice().into());
         e.value_transferred = U256::from(1u64);
     });
-    let _ = token::recharge().unwrap();
+    let p1 = token::recharge().unwrap();
+    assert_eq!(p1, U256::from(1000u64));
     with_engine(|e| {
-        e.set_caller(bob().0);
+        e.set_caller(bob().into());
         e.value_transferred = U256::from(2u64);
     });
-    let _ = token::recharge().unwrap();
-    assert_eq!(token::get_balance(alice()), U256::from(1u64));
-    assert_eq!(token::get_balance(bob()), U256::from(2u64));
+    let p2 = token::recharge().unwrap();
+    assert_eq!(p2, U256::from(2000u64));
 }
 
 // ========== 提现 ==========
 
 #[test]
 fn withdraw_by_subnet_works() {
-    setup_deployed_and_inited();
+    setup_with_unit(U256::from(1u64), U256::from(1000u64));
     let _ = token::set_subnet(subnet_addr());
 
     // Alice 充值
     with_engine(|e| {
-        e.set_caller(alice().0);
+        e.set_caller(alice().into());
         e.value_transferred = U256::from(10u64);
     });
     let _ = token::recharge().unwrap();
 
-    // Subnet 提现
-    with_engine(|e| e.set_caller(subnet_addr().0));
-    let _ = token::withdraw(alice(), U256::from(3u64));
-    assert_eq!(token::get_balance(alice()), U256::from(7u64));
+    // Subnet 提现（积分余额由 TEE 校验）
+    with_engine(|e| e.set_caller(subnet_addr().into()));
+    let res = token::withdraw(alice(), U256::from(3000u64));
+    assert_eq!(res, Ok(()));
 }
 
 #[test]
 fn withdraw_by_non_subnet_fails() {
-    setup_deployed_and_inited();
+    setup_with_unit(U256::from(1u64), U256::from(1000u64));
     let _ = token::set_subnet(subnet_addr());
 
     with_engine(|e| {
-        e.set_caller(alice().0);
+        e.set_caller(alice().into());
         e.value_transferred = U256::from(10u64);
     });
     let _ = token::recharge().unwrap();
 
     // 非 Subnet 调用提现
-    with_engine(|e| e.set_caller(alice().0));
-    let res = token::withdraw(alice(), U256::from(1u64));
+    with_engine(|e| e.set_caller(alice().into()));
+    let res = token::withdraw(alice(), U256::from(1000u64));
     assert_eq!(res, Err(Error::OnlySubnet));
-}
-
-#[test]
-fn withdraw_insufficient_balance_fails() {
-    setup_deployed_and_inited();
-    let _ = token::set_subnet(subnet_addr());
-
-    with_engine(|e| {
-        e.set_caller(alice().0);
-        e.value_transferred = U256::from(1u64);
-    });
-    let _ = token::recharge().unwrap();
-
-    with_engine(|e| e.set_caller(subnet_addr().0));
-    let res = token::withdraw(alice(), U256::from(5u64));
-    assert_eq!(res, Err(Error::InsufficientBalance));
 }
 
 #[test]
@@ -336,7 +318,7 @@ fn withdraw_zero_amount_fails() {
     setup_deployed_and_inited();
     let _ = token::set_subnet(subnet_addr());
 
-    with_engine(|e| e.set_caller(subnet_addr().0));
+    with_engine(|e| e.set_caller(subnet_addr().into()));
     let res = token::withdraw(alice(), U256::from(0u64));
     assert_eq!(res, Err(Error::AmountMustBeGreaterThanZero));
 }
@@ -345,25 +327,24 @@ fn withdraw_zero_amount_fails() {
 
 #[test]
 fn fallback_recharge_works() {
-    setup_deployed_and_inited();
+    setup_with_unit(U256::from(1u64), U256::from(1000u64));
     with_engine(|e| {
-        e.set_caller(alice().0);
+        e.set_caller(alice().into());
         e.value_transferred = U256::from(7u64);
     });
-    // 调用 fallback（直接转账）
     token::fallback();
-    assert_eq!(token::get_balance(alice()), U256::from(7u64));
+    // 不 panic 即成功
 }
 
 #[test]
 fn fallback_zero_value_does_nothing() {
     setup_deployed_and_inited();
     with_engine(|e| {
-        e.set_caller(alice().0);
+        e.set_caller(alice().into());
         e.value_transferred = U256::from(0u64);
     });
     token::fallback();
-    assert_eq!(token::get_balance(alice()), U256::from(0u64));
+    // 不 panic 即成功
 }
 
 // ========== 查询 ==========
@@ -372,113 +353,38 @@ fn fallback_zero_value_does_nothing() {
 fn to_points_converts_correctly() {
     setup_deployed_and_inited();
     assert_eq!(
-        token::to_points(U256::from(30_000_000_000u64)),
-        U256::from(3u64)
+        token::to_points(U256::from(1_000_000_000_000_000u64)),
+        U256::from(4000u64)
     );
     let _ = token::set_rate(U256::from(500u64));
     assert_eq!(
-        token::to_points(U256::from(30_000_000_000u64)),
-        U256::from(1500u64)
+        token::to_points(U256::from(1_000_000_000_000_000u64)),
+        U256::from(500u64)
     );
-}
-
-#[test]
-fn get_balance_returns_zero_for_unknown_user() {
-    setup_deployed_and_inited();
-    assert_eq!(token::get_balance(bob()), U256::from(0u64));
-}
-
-// ========== 紧急提现 ==========
-
-#[test]
-fn emergency_withdraw_works() {
-    setup_deployed_and_inited();
-    // Alice 充值
-    with_engine(|e| {
-        e.set_caller(alice().0);
-        e.value_transferred = U256::from(10u64);
-    });
-    let _ = token::recharge().unwrap();
-
-    // Owner 紧急提现（caller = alice 即 owner）
-    with_engine(|e| e.set_caller(alice().0));
-    let _ = token::emergency_withdraw();
-}
-
-#[test]
-fn emergency_withdraw_by_non_owner_fails() {
-    setup_deployed_and_inited();
-    with_engine(|e| {
-        e.set_caller(alice().0);
-        e.value_transferred = U256::from(10u64);
-    });
-    let _ = token::recharge().unwrap();
-
-    // Bob 调用 emergency_withdraw 应失败
-    with_engine(|e| e.set_caller(bob().0));
-    let res = token::emergency_withdraw();
-    assert_eq!(res, Err(Error::OnlyOwner));
 }
 
 // ========== Sol ABI 编码测试 ==========
 
 #[test]
 fn sol_recharge_works() {
-    setup_deployed_and_inited();
+    setup_with_unit(U256::from(1u64), U256::from(1000u64));
     with_engine(|e| {
-        e.set_caller(alice().0);
+        e.set_caller(alice().into());
         e.value_transferred = U256::from(5u64);
     });
     let points = token::recharge_sol().unwrap();
-    // 5 ETH * 1000 rate = 5000 points
     assert_eq!(points, U256::from(5000u64));
-    assert_eq!(token::get_balance_sol(alice()), U256::from(5u64));
 }
 
 #[test]
 fn sol_recharge_zero_value_fails() {
     setup_deployed_and_inited();
     with_engine(|e| {
-        e.set_caller(alice().0);
+        e.set_caller(alice().into());
         e.value_transferred = U256::from(0u64);
     });
     let res = token::recharge_sol();
     assert_eq!(res, Err(Error::AmountMustBeGreaterThanZero));
-}
-
-#[test]
-fn sol_withdraw_by_subnet_works() {
-    setup_deployed_and_inited();
-    let _ = token::set_subnet(subnet_addr());
-
-    // Alice 充值
-    with_engine(|e| {
-        e.set_caller(alice().0);
-        e.value_transferred = U256::from(10u64);
-    });
-    let _ = token::recharge_sol().unwrap();
-
-    // Subnet 提现
-    with_engine(|e| e.set_caller(subnet_addr().0));
-    let _ = token::withdraw_sol(alice(), U256::from(3u64));
-    assert_eq!(token::get_balance_sol(alice()), U256::from(7u64));
-}
-
-#[test]
-fn sol_withdraw_without_subnet_fails() {
-    setup_deployed_and_inited();
-    let _ = token::set_subnet(subnet_addr());
-
-    with_engine(|e| {
-        e.set_caller(alice().0);
-        e.value_transferred = U256::from(10u64);
-    });
-    let _ = token::recharge_sol().unwrap();
-
-    // 非 Subnet 调用提现
-    with_engine(|e| e.set_caller(bob().0));
-    let res = token::withdraw_sol(alice(), U256::from(1u64));
-    assert_eq!(res, Err(Error::OnlySubnet));
 }
 
 #[test]
@@ -492,12 +398,210 @@ fn sol_get_rate_works() {
 #[test]
 fn sol_owner_matches_openzeppelin() {
     setup_deployed_and_inited();
-    // owner_sol 的选择器 0x8da5cb5b 与 OpenZeppelin Ownable.owner() 一致
     assert_eq!(token::owner_sol(), alice());
 }
 
 #[test]
 fn sol_to_points_converts() {
     setup_deployed_and_inited();
-    assert_eq!(token::to_points_sol(U256::from(2u64)), U256::from(2000u64));
+    assert_eq!(
+        token::to_points_sol(U256::from(1_000_000_000_000_000u64)),
+        U256::from(4000u64)
+    );
+}
+
+// ========== ERC20 测试 ==========
+
+fn erc20_addr() -> Address {
+    Address::from([40u8; 20])
+}
+
+fn setup_erc20(rate: U256, unit: U256) {
+    setup_deployed_and_inited();
+    let _ = token::set_erc20_token(erc20_addr(), true, rate, unit);
+}
+
+#[test]
+fn set_erc20_token_works() {
+    setup_deployed_and_inited();
+    let res = token::set_erc20_token(
+        erc20_addr(),
+        true,
+        U256::from(1000u64),
+        U256::from(1_000_000u64),
+    );
+    assert_eq!(res, Ok(()));
+    let (active, rate, unit) = token::get_erc20_config(erc20_addr());
+    assert_eq!(active, true);
+    assert_eq!(rate, U256::from(1000u64));
+    assert_eq!(unit, U256::from(1_000_000u64));
+}
+
+#[test]
+fn set_erc20_token_by_non_owner_fails() {
+    setup_deployed_and_inited();
+    with_engine(|e| e.set_caller(bob().into()));
+    let res = token::set_erc20_token(
+        erc20_addr(),
+        true,
+        U256::from(1000u64),
+        U256::from(1_000_000u64),
+    );
+    assert_eq!(res, Err(Error::OnlyOwner));
+}
+
+#[test]
+fn set_erc20_token_zero_address_fails() {
+    setup_deployed_and_inited();
+    let res = token::set_erc20_token(
+        Address::zero(),
+        true,
+        U256::from(1000u64),
+        U256::from(1_000_000u64),
+    );
+    assert_eq!(res, Err(Error::ZeroAddress));
+}
+
+#[test]
+fn set_erc20_token_zero_unit_fails() {
+    setup_deployed_and_inited();
+    let res = token::set_erc20_token(erc20_addr(), true, U256::from(1000u64), U256::from(0u64));
+    assert_eq!(res, Err(Error::AmountMustBeGreaterThanZero));
+}
+
+#[test]
+fn deactivate_erc20_token_works() {
+    setup_erc20(U256::from(1000u64), U256::from(1_000_000u64));
+    let _ = token::set_erc20_token(
+        erc20_addr(),
+        false,
+        U256::from(1000u64),
+        U256::from(1_000_000u64),
+    );
+    let (active, _, _) = token::get_erc20_config(erc20_addr());
+    assert_eq!(active, false);
+}
+
+#[test]
+fn get_erc20_config_unknown_returns_default() {
+    setup_deployed_and_inited();
+    let (active, rate, dec) = token::get_erc20_config(erc20_addr());
+    assert_eq!(active, false);
+    assert_eq!(rate, U256::from(0u64));
+    assert_eq!(dec, U256::from(0u64));
+}
+
+#[test]
+fn get_erc20_config_works() {
+    setup_erc20(U256::from(500u64), U256::from(1_000_000_000_000_000_000u64));
+    let (active, rate, unit) = token::get_erc20_config(erc20_addr());
+    assert_eq!(active, true);
+    assert_eq!(rate, U256::from(500u64));
+    assert_eq!(unit, U256::from(1_000_000_000_000_000_000u64));
+}
+
+#[test]
+fn get_erc20_list_returns_registered_tokens() {
+    setup_deployed_and_inited();
+    assert_eq!(token::get_erc20_count(), U256::from(0u64));
+    // 注册两个代币
+    let _ = token::set_erc20_token(
+        erc20_addr(),
+        true,
+        U256::from(1000u64),
+        U256::from(1_000_000u64),
+    );
+    let addr2 = Address::from([50u8; 20]);
+    let _ = token::set_erc20_token(addr2, true, U256::from(500u64), U256::from(10_000u64));
+    assert_eq!(token::get_erc20_count(), U256::from(2u64));
+    // get_erc20_list 返回定长数组
+    let (addrs, actives, rates, units, count) = token::get_erc20_list();
+    assert_eq!(count, U256::from(2u64));
+    assert_eq!(addrs[0], erc20_addr());
+    assert!(actives[0]);
+    assert_eq!(addrs[1], addr2);
+    // 更新已有代币不增加数量
+    let _ = token::set_erc20_token(
+        erc20_addr(),
+        false,
+        U256::from(2000u64),
+        U256::from(2_000_000u64),
+    );
+    assert_eq!(token::get_erc20_count(), U256::from(2u64));
+}
+
+// ========== ERC20 充值校验 ==========
+
+#[test]
+fn recharge_erc20_unregistered_fails() {
+    setup_deployed_and_inited();
+    with_engine(|e| e.set_caller(alice().into()));
+    let res = token::recharge_erc20(erc20_addr(), U256::from(100u64));
+    assert_eq!(res, Err(Error::ERC20NotSupported));
+}
+
+#[test]
+fn recharge_erc20_inactive_fails() {
+    setup_erc20(U256::from(1000u64), U256::from(1_000_000u64));
+    let _ = token::set_erc20_token(
+        erc20_addr(),
+        false,
+        U256::from(1000u64),
+        U256::from(1_000_000u64),
+    );
+    with_engine(|e| e.set_caller(alice().into()));
+    let res = token::recharge_erc20(erc20_addr(), U256::from(100u64));
+    assert_eq!(res, Err(Error::ERC20Inactive));
+}
+
+#[test]
+fn recharge_erc20_zero_amount_fails() {
+    setup_erc20(U256::from(1000u64), U256::from(1_000_000u64));
+    with_engine(|e| e.set_caller(alice().into()));
+    let res = token::recharge_erc20(erc20_addr(), U256::from(0u64));
+    assert_eq!(res, Err(Error::AmountMustBeGreaterThanZero));
+}
+
+// ========== ERC20 提现校验 ==========
+
+#[test]
+fn withdraw_erc20_by_non_subnet_fails() {
+    setup_erc20(U256::from(1000u64), U256::from(1_000_000u64));
+    let _ = token::set_subnet(subnet_addr());
+    with_engine(|e| e.set_caller(alice().into()));
+    let res = token::withdraw_erc20(erc20_addr(), alice(), U256::from(1000u64));
+    assert_eq!(res, Err(Error::OnlySubnet));
+}
+
+#[test]
+fn withdraw_erc20_unregistered_fails() {
+    setup_deployed_and_inited();
+    let _ = token::set_subnet(subnet_addr());
+    with_engine(|e| e.set_caller(subnet_addr().into()));
+    let res = token::withdraw_erc20(erc20_addr(), alice(), U256::from(1000u64));
+    assert_eq!(res, Err(Error::ERC20NotSupported));
+}
+
+#[test]
+fn withdraw_erc20_inactive_fails() {
+    setup_erc20(U256::from(1000u64), U256::from(1_000_000u64));
+    let _ = token::set_subnet(subnet_addr());
+    let _ = token::set_erc20_token(
+        erc20_addr(),
+        false,
+        U256::from(1000u64),
+        U256::from(1_000_000u64),
+    );
+    with_engine(|e| e.set_caller(subnet_addr().into()));
+    let res = token::withdraw_erc20(erc20_addr(), alice(), U256::from(1000u64));
+    assert_eq!(res, Err(Error::ERC20Inactive));
+}
+
+#[test]
+fn withdraw_erc20_zero_points_fails() {
+    setup_erc20(U256::from(1000u64), U256::from(1_000_000u64));
+    let _ = token::set_subnet(subnet_addr());
+    with_engine(|e| e.set_caller(subnet_addr().into()));
+    let res = token::withdraw_erc20(erc20_addr(), alice(), U256::from(0u64));
+    assert_eq!(res, Err(Error::AmountMustBeGreaterThanZero));
 }

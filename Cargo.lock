@@ -2103,6 +2103,7 @@ dependencies = [
  "polkavm-derive 0.31.0",
  "primitives",
  "pvm-bump-allocator",
+ "pvm-contract-sdk",
  "pvm-contract-types",
  "wrevive-api",
  "wrevive-macro",
