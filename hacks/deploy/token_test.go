@@ -214,3 +214,7 @@ func TestSetTokenUnit(t *testing.T) {
 	}
 	fmt.Println("new unit:", unit.String())
 }
+
+func TestSetErc20Token(t *testing.T) {
+	// set_erc20_token
+}

@@ -266,16 +266,36 @@ pub mod token {
         }
     }
 
-    /// 已注册 ERC20 代币数量
-    #[revive(message, sol)]
+    /// 已注册 ERC20 代币数量 (codec)
+    #[revive(message)]
     pub fn get_erc20_count() -> U256 {
         let list = ERC20_TOKEN_LIST.get().unwrap_or_default();
         U256::from(list.len() as u64)
     }
 
-    /// 返回 ERC20 代币列表 | Return ERC20 token list
+    /// 已注册 ERC20 代币数量 (Sol ABI)
     #[revive(message, sol)]
+    pub fn get_erc20_count_sol() -> U256 {
+        let list = ERC20_TOKEN_LIST.get().unwrap_or_default();
+        U256::from(list.len() as u64)
+    }
+
+    /// 返回 ERC20 代币列表 | Return ERC20 token list (codec)
+    #[revive(message)]
     pub fn get_erc20_list() -> Vec<(Address, bool, U256, U256)> {
+        let list = ERC20_TOKEN_LIST.get().unwrap_or_default();
+        let mut result = Vec::with_capacity(list.len());
+        for addr in &list {
+            if let Some(c) = ERC20_TOKENS.get(addr) {
+                result.push((*addr, c.active, c.rate, c.unit));
+            }
+        }
+        result
+    }
+
+    /// 返回 ERC20 代币列表 | Return ERC20 token list (Sol ABI)
+    #[revive(message, sol)]
+    pub fn get_erc20_list_sol() -> Vec<(Address, bool, U256, U256)> {
         let list = ERC20_TOKEN_LIST.get().unwrap_or_default();
         let mut result = Vec::with_capacity(list.len());
         for addr in &list {
