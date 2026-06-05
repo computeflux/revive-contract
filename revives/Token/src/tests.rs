@@ -503,7 +503,7 @@ fn get_erc20_config_works() {
 #[test]
 fn get_erc20_list_returns_registered_tokens() {
     setup_deployed_and_inited();
-    assert_eq!(token::get_erc20_count(), U256::from(0u64));
+    assert_eq!(token::get_erc20_count(), 0u64);
     // 注册两个代币
     let _ = token::set_erc20_token(
         erc20_addr(),
@@ -513,7 +513,7 @@ fn get_erc20_list_returns_registered_tokens() {
     );
     let addr2 = Address::from([50u8; 20]);
     let _ = token::set_erc20_token(addr2, true, U256::from(500u64), U256::from(10_000u64));
-    assert_eq!(token::get_erc20_count(), U256::from(2u64));
+    assert_eq!(token::get_erc20_count(), 2u64);
     // get_erc20_list 返回 Vec
     let list = token::get_erc20_list();
     assert_eq!(list.len(), 2);
@@ -530,7 +530,7 @@ fn get_erc20_list_returns_registered_tokens() {
         U256::from(2000u64),
         U256::from(2_000_000u64),
     );
-    assert_eq!(token::get_erc20_count(), U256::from(2u64));
+    assert_eq!(token::get_erc20_count(), 2u64);
 }
 
 // ========== ERC20 充值校验 ==========

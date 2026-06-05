@@ -22,4 +22,6 @@ pub enum Error {
     ERC20Inactive,
     /// ERC20 转账失败 (EVM call 失败)
     ERC20TransferFailed,
+    /// Native token 充值已禁用
+    NativeDisabled,
 }

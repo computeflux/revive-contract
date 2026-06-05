@@ -46,20 +46,19 @@ func TestRecharge(t *testing.T) {
 	}
 
 	param := chain.DefaultParamWithOrigin(pk.AccountID())
-	h160, _ := util.H160FromPublicKey(pk.Public())
 
-	// 查询充值前余额
+	// 查询充值前链上余额 & 事件 nonce
 	chainBefore, err := system.GetAccountLatest(client.Api().RPC.State, pk.AccountID())
 	if err != nil {
 		t.Fatal("get chain balance before:", err)
 	}
 	fmt.Println("chain balance before recharge:", chainBefore.Data.Free)
 
-	balBefore, _, err := tokenIns.QueryGetBalance(h160, param)
+	nonceBefore, _, err := tokenIns.QueryGetLatestNonce(param)
 	if err != nil {
-		t.Fatal("get_balance before:", err)
+		t.Fatal("get_latest_nonce before:", err)
 	}
-	fmt.Println("credits before recharge:  ", balBefore.String())
+	fmt.Println("latest event nonce before:", *nonceBefore)
 
 	amount := types.NewU128(*big.NewInt(Unit))
 	err = tokenIns.ExecRecharge(chain.ExecParams{
@@ -70,24 +69,38 @@ func TestRecharge(t *testing.T) {
 		t.Fatal("recharge:", err)
 	}
 
-	// 查询充值后余额
+	// 查询充值后链上余额
 	chainAfter, err := system.GetAccountLatest(client.Api().RPC.State, pk.AccountID())
 	if err != nil {
 		t.Fatal("get chain balance after:", err)
 	}
 	fmt.Println("chain balance after recharge: ", chainAfter.Data.Free)
 
-	balAfter, _, err := tokenIns.QueryGetBalance(h160, param)
-	if err != nil {
-		t.Fatal("get_balance after:", err)
-	}
-	fmt.Println("credits after recharge:   ", balAfter.String())
-
-	// 计算充值消耗和积分
+	// 计算链上消耗
 	chainDiff := new(big.Int).Sub(chainBefore.Data.Free.Int, chainAfter.Data.Free.Int)
-	creditDiff := new(big.Int).Sub(balAfter.Int, balBefore.Int)
 	fmt.Println("chain spent (Planck):", chainDiff)
-	fmt.Println("recharged credits:   ", creditDiff.Uint64())
+
+	// 通过事件记录验证充值 | Verify recharge via events
+	nonceAfter, _, err := tokenIns.QueryGetLatestNonce(param)
+	if err != nil {
+		t.Fatal("get_latest_nonce after:", err)
+	}
+	fmt.Println("latest event nonce after:", *nonceAfter)
+
+	// 获取新增的事件
+	events, _, err := tokenIns.QueryGetEvents(*nonceBefore+1, *nonceAfter, param)
+	if err != nil {
+		t.Fatal("get_events:", err)
+	}
+	if events == nil || len(*events) == 0 {
+		t.Error("no new events after recharge")
+	} else {
+		fmt.Printf("new events count: %d\n", len(*events))
+		for i, ev := range *events {
+			fmt.Printf("  event[%d] contract=%s type=%s data_len=%d\n",
+				i, string(ev.TargetContract), string(ev.EventType), len(ev.EventData))
+		}
+	}
 }
 
 func TestGetRate(t *testing.T) {
@@ -133,25 +146,6 @@ func TestToPoints(t *testing.T) {
 	fmt.Println("3 DOT =", points, "points")
 }
 
-func TestGetBalance(t *testing.T) {
-	cfg := loadConfig(t)
-	client := newClient(t, cfg)
-	pk := newSigner(t, cfg)
-
-	tokenIns, err := token.InitTokenContract(client, cfg.Contracts.Token)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	param := chain.DefaultParamWithOrigin(pk.AccountID())
-	h160, _ := util.H160FromPublicKey(pk.Public())
-	bal, _, err := tokenIns.QueryGetBalance(h160, param)
-	if err != nil {
-		t.Fatal("get_balance:", err)
-	}
-	fmt.Println("balance:", bal)
-}
-
 func TestSetRate(t *testing.T) {
 	cfg := loadConfig(t)
 	client := newClient(t, cfg)
@@ -166,7 +160,7 @@ func TestSetRate(t *testing.T) {
 	oldRate, _, _ := tokenIns.QueryGetRate(param)
 	fmt.Println("old rate:", oldRate.String())
 
-	newRate := types.NewU256(*new(big.Int).SetUint64(20_0000))
+	newRate := types.NewU256(*new(big.Int).SetUint64(20_000))
 	err = tokenIns.ExecSetRate(newRate, chain.ExecParams{
 		Signer:    pk,
 		PayAmount: types.NewU128(*big.NewInt(0)),
@@ -216,5 +210,114 @@ func TestSetTokenUnit(t *testing.T) {
 }
 
 func TestSetErc20Token(t *testing.T) {
-	// set_erc20_token
+	cfg := loadConfig(t)
+	client := newClient(t, cfg)
+	pk := newSigner(t, cfg)
+
+	tokenIns, err := token.InitTokenContract(client, cfg.Contracts.Token)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	param := chain.DefaultParamWithOrigin(pk.AccountID())
+
+	// 查询注册前 ERC20 代币数量
+	countBefore, _, err := tokenIns.QueryGetErc20Count(param)
+	if err != nil {
+		t.Fatal("get_erc20_count before:", err)
+	}
+	fmt.Println("erc20 count before:", countBefore)
+
+	// 注册一个 ERC20 代币
+	erc20Addr, err := util.HexToH160("0x179843f0804D92e85A22b3B105bb33A68a790A4E")
+	if err != nil {
+		t.Fatal("invalid erc20 address:", err)
+	}
+	active := true
+	rate := types.NewU256(*new(big.Int).SetUint64(3000))
+	unit := types.NewU256(*new(big.Int).SetUint64(1_000_000))
+
+	err = tokenIns.ExecSetErc20Token(erc20Addr, active, rate, unit, chain.ExecParams{
+		Signer:    pk,
+		PayAmount: types.NewU128(*big.NewInt(0)),
+	})
+	if err != nil {
+		t.Fatal("set_erc20_token:", err)
+	}
+
+	// 验证：数量 +1
+	countAfter, _, err := tokenIns.QueryGetErc20Count(param)
+	if err != nil {
+		t.Fatal("get_erc20_count after:", err)
+	}
+	fmt.Println("erc20 count after:", countAfter)
+
+	// 验证：get_erc20_config 返回正确配置
+	erc20Cfg, _, err := tokenIns.QueryGetErc20Config(erc20Addr, param)
+	if err != nil {
+		t.Fatal("get_erc20_config:", err)
+	}
+	if erc20Cfg == nil {
+		t.Fatal("get_erc20_config returned nil")
+	}
+	fmt.Printf("erc20 config: active=%v rate=%s unit=%s\n", erc20Cfg.F0, erc20Cfg.F1.String(), erc20Cfg.F2.String())
+
+	// 验证：get_erc20_list 包含注册的代币
+	list, _, err := tokenIns.QueryGetErc20List(param)
+	if err != nil {
+		t.Fatal("get_erc20_list:", err)
+	}
+	if list == nil {
+		t.Fatal("get_erc20_list returned nil")
+	}
+	fmt.Printf("erc20 list length: %d\n", len(*list))
+	found := false
+	for _, item := range *list {
+		if item.F0 == erc20Addr {
+			found = true
+			fmt.Printf("  token=%v active=%v rate=%s unit=%s\n", item.F0.Hex(), item.F1, item.F2.String(), item.F3.String())
+			break
+		}
+	}
+	if !found {
+		t.Error("registered token not found in get_erc20_list")
+	}
+}
+
+func TestTransErc20(t *testing.T) {
+	cfg := loadConfig(t)
+	client := newClient(t, cfg)
+	pk := newSigner(t, cfg)
+	param := chain.DefaultParamWithOrigin(pk.AccountID())
+
+	tokenIns, err := token.InitTokenContract(client, cfg.Contracts.Token)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// user, err := util.HexToH160("0x21429C1E80300b503d7a0D933c613aEE3DAf3120")
+	// if err != nil {
+	// 	t.Fatal("invalid user address:", err)
+	// }
+
+	erc20Addr, err := util.HexToH160("0x179843f0804D92e85A22b3B105bb33A68a790A4E")
+	if err != nil {
+		t.Fatal("invalid erc20 address:", err)
+	}
+
+	b, _, err := tokenIns.QueryGetErc20Balance(erc20Addr, param)
+	if err != nil {
+		t.Fatal("GetErc20Balance :", err)
+	}
+
+	fmt.Println(b.String())
+
+	// err = tokenIns.ExecTransErc20(erc20Addr, user, types.NewU256(*new(big.Int).SetUint64(1000)), chain.ExecParams{
+	// 	Signer:    pk,
+	// 	PayAmount: types.NewU128(*big.NewInt(0)),
+	// })
+
+	// if err != nil {
+	// 	t.Fatal("trans erc20:", err)
+	// }
 }

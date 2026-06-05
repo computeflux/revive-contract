@@ -63,6 +63,9 @@ pub mod token {
     /// ERC20 代币地址列表（用于遍历查询）
     const ERC20_TOKEN_LIST: Storage<Vec<Address>> = storage!(b"erc20_token_list");
 
+    /// Native token 充值开关 (默认开启)
+    const NATIVE_ACTIVE: Storage<bool> = storage!(b"native_active");
+
     /// 全局事件 nonce
     const EVENT_NONCE: Storage<u64> = storage!(b"event_nonce");
     /// 事件存储: nonce → EventRecord
@@ -120,6 +123,14 @@ pub mod token {
         ensure_owner()?;
         ensure!(unit > U256::from(0u64), Error::AmountMustBeGreaterThanZero);
         TOKEN_UNIT.set(&unit);
+        Ok(())
+    }
+
+    /// 启用/禁用 Native token 充值
+    #[revive(message, write)]
+    pub fn set_native_active(active: bool) -> Result<(), Error> {
+        ensure_owner()?;
+        NATIVE_ACTIVE.set(&active);
         Ok(())
     }
 
@@ -226,6 +237,12 @@ pub mod token {
             .unwrap_or(U256::from(1_000_000_000_000_000u64))
     }
 
+    /// Native token 充值是否启用
+    #[revive(message)]
+    pub fn get_native_active() -> bool {
+        NATIVE_ACTIVE.get().unwrap_or(true) // 默认开启
+    }
+
     #[revive(message)]
     pub fn get_subnet() -> Address {
         SUBNET.get().unwrap_or(Address::zero())
@@ -257,8 +274,14 @@ pub mod token {
         OWNER.get().unwrap_or(Address::zero())
     }
 
-    // ========== ERC20 查询 ==========
+    /// Native token 充值是否启用 (Sol ABI)
     #[revive(message, sol)]
+    pub fn get_native_active_sol() -> bool {
+        NATIVE_ACTIVE.get().unwrap_or(true) // 默认开启
+    }
+
+    // ========== ERC20 查询 ==========
+    #[revive(message)]
     pub fn get_erc20_config(token: Address) -> (bool, U256, U256) {
         match ERC20_TOKENS.get(&token) {
             Some(c) => (c.active, c.rate, c.unit),
@@ -266,21 +289,13 @@ pub mod token {
         }
     }
 
-    /// 已注册 ERC20 代币数量 (codec)
     #[revive(message)]
-    pub fn get_erc20_count() -> U256 {
+    pub fn get_erc20_count() -> u64 {
         let list = ERC20_TOKEN_LIST.get().unwrap_or_default();
-        U256::from(list.len() as u64)
+        list.len() as u64
     }
 
-    /// 已注册 ERC20 代币数量 (Sol ABI)
-    #[revive(message, sol)]
-    pub fn get_erc20_count_sol() -> U256 {
-        let list = ERC20_TOKEN_LIST.get().unwrap_or_default();
-        U256::from(list.len() as u64)
-    }
-
-    /// 返回 ERC20 代币列表 | Return ERC20 token list (codec)
+    /// 返回 ERC20 代币列表 | Return ERC20 token list
     #[revive(message)]
     pub fn get_erc20_list() -> Vec<(Address, bool, U256, U256)> {
         let list = ERC20_TOKEN_LIST.get().unwrap_or_default();
@@ -293,7 +308,31 @@ pub mod token {
         result
     }
 
-    /// 返回 ERC20 代币列表 | Return ERC20 token list (Sol ABI)
+    // ========== ERC20 查询 sol ==========
+    #[revive(message, sol)]
+    pub fn get_erc20_config_sol(token: Address) -> (bool, U256, U256) {
+        match ERC20_TOKENS.get(&token) {
+            Some(c) => (c.active, c.rate, c.unit),
+            None => (false, U256::from(0u64), U256::from(0u64)),
+        }
+    }
+
+    /// 查询合约持有的 ERC20 代币余额 | Query ERC20 token balance held by this contract
+    #[revive(message)]
+    pub fn get_erc20_balance(token: Address) -> U256 {
+        let contract_addr = env().address();
+        let calldata = build_balance_of_calldata(&contract_addr);
+        call_erc20_view(&token, &calldata).unwrap_or(U256::from(0u64))
+    }
+
+    /// 已注册 ERC20 代币数量 (Sol ABI)
+    #[revive(message, sol)]
+    pub fn get_erc20_count_sol() -> U256 {
+        let list = ERC20_TOKEN_LIST.get().unwrap_or_default();
+        U256::from(list.len() as u64)
+    }
+
+    /// 返回 ERC20 代币列表 | Return ERC20 token list
     #[revive(message, sol)]
     pub fn get_erc20_list_sol() -> Vec<(Address, bool, U256, U256)> {
         let list = ERC20_TOKEN_LIST.get().unwrap_or_default();
@@ -312,6 +351,10 @@ pub mod token {
         let api = env();
         let value = api.value_transferred();
         if value > U256::from(0u64) {
+            // 检查 Native token 充值是否启用
+            if !NATIVE_ACTIVE.get().unwrap_or(true) {
+                api.return_value(ReturnFlags::REVERT, &[]);
+            }
             let points = value_to_points(value);
             let caller = api.caller();
 
@@ -328,6 +371,7 @@ pub mod token {
 
     // ========== 内部实现 ==========
     fn recharge_impl() -> Result<U256, Error> {
+        ensure_native_active()?;
         let api = env();
         let value = api.value_transferred();
         ensure!(value > U256::from(0u64), Error::AmountMustBeGreaterThanZero);
@@ -492,6 +536,12 @@ pub mod token {
         Ok(())
     }
 
+    fn ensure_native_active() -> Result<(), Error> {
+        let active = NATIVE_ACTIVE.get().unwrap_or(true);
+        ensure!(active, Error::NativeDisabled);
+        Ok(())
+    }
+
     /// 校验 ERC20 已注册且激活 | Ensure ERC20 token registered and active
     fn ensure_erc20_active(token: &Address) -> Result<ERC20TokenConfig, Error> {
         let config = ERC20_TOKENS.get(token).ok_or(Error::ERC20NotSupported)?;
@@ -501,22 +551,31 @@ pub mod token {
         Ok(config)
     }
 
-    /// 调用 ERC20 合约 (EVM call) | Call ERC20 contract via call_evm
-    fn call_erc20(token: &Address, calldata: &[u8]) -> Result<(), Error> {
+    /// 调用 ERC20 合约 | Call ERC20 contract
+    fn call_erc20(contract: &Address, calldata: &[u8]) -> Result<(), Error> {
         let api = env();
-        let mut output = [0u8; 32];
-        let mut out_slice: &mut [u8] = &mut output;
-        api.call_evm(
+        // 用 call 而非 call_evm（与 Proxy 合约保持一致，兼容性更好）
+        api.call(
             CallFlags::empty(),
-            token,
-            u64::MAX,
-            &U256::from(0u64),
+            contract,
+            u64::MAX,          // ref_time_limit
+            u64::MAX,          // proof_size_limit
+            &U256::from(0u64), // deposit
+            &U256::from(0u64), // value
             calldata,
-            Some(&mut out_slice),
+            None,
         )
         .map_err(|_| Error::ERC20TransferFailed)?;
-        // 解析 bool 返回值 (32 bytes 大端, 最后 1 byte 为 true/false)
-        if out_slice.len() >= 32 && out_slice[31] != 0 {
+
+        // 解析 bool 返回值: ERC20 transfer 返回 uint256(bool)，大端，最后一字节为 0/1
+        let len = api.return_data_size() as usize;
+        if len < 32 {
+            return Err(Error::ERC20TransferFailed);
+        }
+        let mut buf = [0u8; 32];
+        let mut out = &mut buf[..];
+        api.return_data_copy(&mut out, 0);
+        if buf[31] != 0 {
             Ok(())
         } else {
             Err(Error::ERC20TransferFailed)
@@ -543,5 +602,38 @@ pub mod token {
         data.extend_from_slice(to.as_ref());
         data.extend_from_slice(&amount.to_be_bytes()); // 大端
         data
+    }
+
+    /// 构造 balanceOf(address) calldata
+    fn build_balance_of_calldata(account: &Address) -> Vec<u8> {
+        let mut data = Vec::with_capacity(4 + 32);
+        data.extend_from_slice(&[0x70, 0xa0, 0x82, 0x31]); // selector: balanceOf(address)
+        data.extend_from_slice(&[0u8; 12]); // left-pad address
+        data.extend_from_slice(account.as_ref());
+        data
+    }
+
+    /// 调用 ERC20 view 函数，返回 U256 结果
+    fn call_erc20_view(contract: &Address, calldata: &[u8]) -> Result<U256, Error> {
+        let api = env();
+        api.call(
+            CallFlags::empty(),
+            contract,
+            u64::MAX,
+            u64::MAX,
+            &U256::from(0u64),
+            &U256::from(0u64),
+            calldata,
+            None,
+        )
+        .map_err(|_| Error::ERC20TransferFailed)?;
+        let len = api.return_data_size() as usize;
+        if len < 32 {
+            return Err(Error::ERC20TransferFailed);
+        }
+        let mut buf = [0u8; 32];
+        let mut out = &mut buf[..];
+        api.return_data_copy(&mut out, 0);
+        Ok(U256::from_be_bytes(buf))
     }
 }
