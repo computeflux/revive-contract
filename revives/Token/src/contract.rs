@@ -450,10 +450,8 @@ pub mod token {
             t: 2,
             v: caller.as_ref().to_vec(),
         }));
-        args.push(Encode::encode(&token));
-        args.push(Encode::encode(&amount));
         args.push(Encode::encode(&points));
-        emit_event(b"gateway", b"RechargeERC20", args);
+        emit_event(b"gateway", b"Recharge", args);
         Ok(points)
     }
 

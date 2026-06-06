@@ -234,8 +234,8 @@ func TestSetErc20Token(t *testing.T) {
 		t.Fatal("invalid erc20 address:", err)
 	}
 	active := true
-	rate := types.NewU256(*new(big.Int).SetUint64(3000))
-	unit := types.NewU256(*new(big.Int).SetUint64(1_000_000))
+	rate := types.NewU256(*new(big.Int).SetUint64(10_000))
+	unit := types.NewU256(*new(big.Int).SetUint64(1_000_000_000_000_000_000))
 
 	err = tokenIns.ExecSetErc20Token(erc20Addr, active, rate, unit, chain.ExecParams{
 		Signer:    pk,
@@ -281,6 +281,40 @@ func TestSetErc20Token(t *testing.T) {
 	}
 	if !found {
 		t.Error("registered token not found in get_erc20_list")
+	}
+}
+
+func TestGetErc20List(t *testing.T) {
+	cfg := loadConfig(t)
+	client := newClient(t, cfg)
+	pk := newSigner(t, cfg)
+
+	tokenIns, err := token.InitTokenContract(client, cfg.Contracts.Token)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	param := chain.DefaultParamWithOrigin(pk.AccountID())
+
+	// 查询 ERC20 代币总数
+	count, _, err := tokenIns.QueryGetErc20Count(param)
+	if err != nil {
+		t.Fatal("get_erc20_count:", err)
+	}
+	fmt.Println("total erc20 count:", count)
+
+	// 查询 ERC20 代币列表
+	list, _, err := tokenIns.QueryGetErc20List(param)
+	if err != nil {
+		t.Fatal("get_erc20_list:", err)
+	}
+	if list == nil {
+		t.Fatal("get_erc20_list returned nil")
+	}
+	fmt.Printf("erc20 list length: %d\n", len(*list))
+	for _, item := range *list {
+		fmt.Printf("  addr=%s active=%v rate=%s unit=%s\n",
+			item.F0.Hex(), item.F1, item.F2.String(), item.F3.String())
 	}
 }
 
