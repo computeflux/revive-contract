@@ -24,6 +24,7 @@ mod tests;
 
 use pallet_revive_uapi::CallFlags;
 use parity_scale_codec::Encode;
+use pvm_contract_sdk::SolType;
 use wrevive_api::*;
 use wrevive_macro::{mapping, revive_contract, storage};
 
@@ -44,6 +45,20 @@ pub struct ERC20TokenConfig {
     pub active: bool,
     pub rate: U256,
     pub unit: U256,
+}
+
+/// 提现状态常量 | Withdrawal status constants
+pub const WITHDRAWAL_STATUS_PENDING: u8 = 0;
+pub const WITHDRAWAL_STATUS_DONE: u8 = 1;
+pub const WITHDRAWAL_STATUS_CANCELLED: u8 = 2;
+
+/// 待提现记录 | Pending withdrawal (nonce 唯一标识)
+#[derive(Clone, Encode, Decode, Debug, PartialEq, Eq, SolType)]
+pub struct PendingWithdrawal {
+    pub user: Address,
+    pub token: Address, // address(0)=原生币, 其他=ERC20
+    pub amount: U256,
+    pub status: u8,
 }
 
 #[revive_contract]
@@ -70,6 +85,9 @@ pub mod token {
     const EVENT_NONCE: Storage<u64> = storage!(b"event_nonce");
     /// 事件存储: nonce → EventRecord
     const EVENTS: Mapping<u64, EventRecord> = mapping!(b"events");
+
+    /// 待提现记录: nonce → PendingWithdrawal
+    const PENDING_WITHDRAWALS: Mapping<u64, PendingWithdrawal> = mapping!(b"pending_wd_v2");
 
     // ========== 构造函数 ==========
     #[revive(constructor)]
@@ -166,13 +184,18 @@ pub mod token {
     }
 
     #[revive(message, write)]
-    pub fn withdraw(user: Address, points: U256) -> Result<(), Error> {
-        withdraw_impl(user, points)
+    pub fn withdraw(user: Address, points: U256, nonce: u64) -> Result<(), Error> {
+        withdraw_impl(user, points, nonce)
     }
 
     #[revive(message, write)]
-    pub fn withdraw_erc20(token: Address, user: Address, points: U256) -> Result<(), Error> {
-        withdraw_erc20_impl(token, user, points)
+    pub fn withdraw_erc20(
+        token: Address,
+        user: Address,
+        points: U256,
+        nonce: u64,
+    ) -> Result<(), Error> {
+        withdraw_erc20_impl(token, user, points, nonce)
     }
 
     // ========== 充值/提现 (Sol ABI) ==========
@@ -345,6 +368,84 @@ pub mod token {
         result
     }
 
+    /// 查询待提现记录（按 nonce）
+    /// 返回的 PendingWithdrawal 中 user 为 address(0) 表示该 nonce 不存在
+    #[revive(message, sol)]
+    pub fn get_pending_withdrawal_sol(nonce: u64) -> PendingWithdrawal {
+        PENDING_WITHDRAWALS
+            .get(&nonce)
+            .unwrap_or(PendingWithdrawal {
+                user: Address::zero(),
+                token: Address::zero(),
+                amount: U256::from(0u64),
+                status: WITHDRAWAL_STATUS_PENDING,
+            })
+    }
+
+    /// 用户领取待提现资金（按 nonce）
+    #[revive(message, write, sol)]
+    pub fn claim_withdrawal_sol(nonce: u64) -> Result<(), Error> {
+        let caller = env().caller();
+        let mut pending = PENDING_WITHDRAWALS
+            .get(&nonce)
+            .ok_or(Error::InsufficientBalance)?;
+
+        if pending.user != caller {
+            return Err(Error::OnlyOwner);
+        }
+
+        if pending.status != WITHDRAWAL_STATUS_PENDING {
+            return Err(Error::InsufficientBalance);
+        }
+
+        if pending.token == Address::zero() {
+            if env().balance() < pending.amount {
+                return Err(Error::InsufficientBalance);
+            }
+            env()
+                .transfer(&caller, &pending.amount)
+                .map_err(|_| Error::TransferFailed)?;
+        } else {
+            let calldata = build_transfer_calldata(&caller, pending.amount);
+            call_erc20(&pending.token, &calldata)?;
+        }
+
+        pending.status = WITHDRAWAL_STATUS_DONE;
+        PENDING_WITHDRAWALS.set(&nonce, &pending);
+
+        // 通知 teechain 提现完成
+        let mut args = Vec::new();
+        args.push(Encode::encode(&nonce));
+        emit_event(b"gateway", b"WithdrawalDone", args);
+        Ok(())
+    }
+
+    /// 用户取消待提现（按 nonce）
+    #[revive(message, write, sol)]
+    pub fn cancel_withdrawal_sol(nonce: u64) -> Result<(), Error> {
+        let caller = env().caller();
+        let mut pending = PENDING_WITHDRAWALS
+            .get(&nonce)
+            .ok_or(Error::InsufficientBalance)?;
+
+        if pending.user != caller {
+            return Err(Error::OnlyOwner);
+        }
+
+        if pending.status != WITHDRAWAL_STATUS_PENDING {
+            return Err(Error::InsufficientBalance);
+        }
+
+        pending.status = WITHDRAWAL_STATUS_CANCELLED;
+        PENDING_WITHDRAWALS.set(&nonce, &pending);
+
+        // 通知 teechain 提现已取消
+        let mut args = Vec::new();
+        args.push(Encode::encode(&nonce));
+        emit_event(b"gateway", b"WithdrawalCancelled", args);
+        Ok(())
+    }
+
     // ========== 默认充值（fallback） ==========
     #[revive(fallback, payable)]
     pub fn fallback() {
@@ -394,31 +495,57 @@ pub mod token {
         Ok(points)
     }
 
-    fn withdraw_impl(user: Address, points: U256) -> Result<(), Error> {
+    fn withdraw_impl(user: Address, points: U256, nonce: u64) -> Result<(), Error> {
         ensure_subnet()?;
         ensure!(
             points > U256::from(0u64),
             Error::AmountMustBeGreaterThanZero
         );
 
-        // 积分余额由 TEE 子链校验，合约只负责转账
+        // 如果 nonce 已存在，说明侧链重复提交，直接返回 Ok
+        if PENDING_WITHDRAWALS.get(&nonce).is_some() {
+            return Ok(());
+        }
+
+        // 积分余额由 TEE 子链校验，合约记录待提现
         let eth_amount = points_to_value(points);
         ensure!(
             eth_amount > U256::from(0u64),
             Error::AmountMustBeGreaterThanZero
         );
 
-        env()
-            .transfer(&user, &eth_amount)
-            .map_err(|_| Error::TransferFailed)?;
+        // 余额充足则直接转账，无需用户后续 claim
+        if env().balance() >= eth_amount {
+            env()
+                .transfer(&user, &eth_amount)
+                .map_err(|_| Error::TransferFailed)?;
 
-        let mut args = Vec::new();
-        args.push(Encode::encode(&UniAddr {
-            t: 2,
-            v: user.as_ref().to_vec(),
-        }));
-        args.push(Encode::encode(&points));
-        emit_event(b"gateway", b"Withdraw", args);
+            PENDING_WITHDRAWALS.set(
+                &nonce,
+                &PendingWithdrawal {
+                    user,
+                    token: Address::zero(),
+                    amount: eth_amount,
+                    status: WITHDRAWAL_STATUS_DONE,
+                },
+            );
+
+            let mut args = Vec::new();
+            args.push(Encode::encode(&nonce));
+            emit_event(b"gateway", b"WithdrawalDone", args);
+            return Ok(());
+        }
+
+        // 余额不足，记录待提现，用户后续自行 claim
+        PENDING_WITHDRAWALS.set(
+            &nonce,
+            &PendingWithdrawal {
+                user,
+                token: Address::zero(),
+                amount: eth_amount,
+                status: WITHDRAWAL_STATUS_PENDING,
+            },
+        );
         Ok(())
     }
 
@@ -455,13 +582,23 @@ pub mod token {
         Ok(points)
     }
 
-    fn withdraw_erc20_impl(token: Address, user: Address, points: U256) -> Result<(), Error> {
+    fn withdraw_erc20_impl(
+        token: Address,
+        user: Address,
+        points: U256,
+        nonce: u64,
+    ) -> Result<(), Error> {
         ensure_subnet()?;
         let config = ensure_erc20_active(&token)?;
         ensure!(
             points > U256::from(0u64),
             Error::AmountMustBeGreaterThanZero
         );
+
+        // 如果 nonce 已存在，说明侧链重复提交，直接返回 Ok
+        if PENDING_WITHDRAWALS.get(&nonce).is_some() {
+            return Ok(());
+        }
 
         // 换算 ERC20 数量: amount = points * unit / rate
         let amount = points * config.unit / config.rate;
@@ -470,19 +607,42 @@ pub mod token {
             Error::AmountMustBeGreaterThanZero
         );
 
-        // 调用 ERC20.transfer(user, amount)
-        let calldata = build_transfer_calldata(&user, amount);
-        let _ = call_erc20(&token, &calldata).map_err(|_| Error::ERC20TransferFailed)?;
+        // 查询合约持有的 ERC20 余额
+        let balance_calldata = build_balance_of_calldata(&env().address());
+        let contract_balance =
+            call_erc20_view(&token, &balance_calldata).unwrap_or(U256::from(0u64));
 
-        let mut args = Vec::new();
-        args.push(Encode::encode(&UniAddr {
-            t: 2,
-            v: user.as_ref().to_vec(),
-        }));
-        args.push(Encode::encode(&token));
-        args.push(Encode::encode(&amount));
-        args.push(Encode::encode(&points));
-        emit_event(b"gateway", b"WithdrawERC20", args);
+        // 余额充足则直接转账，无需用户后续 claim
+        if contract_balance >= amount {
+            let transfer_calldata = build_transfer_calldata(&user, amount);
+            call_erc20(&token, &transfer_calldata)?;
+
+            PENDING_WITHDRAWALS.set(
+                &nonce,
+                &PendingWithdrawal {
+                    user,
+                    token,
+                    amount,
+                    status: WITHDRAWAL_STATUS_DONE,
+                },
+            );
+
+            let mut args = Vec::new();
+            args.push(Encode::encode(&nonce));
+            emit_event(b"gateway", b"WithdrawalDone", args);
+            return Ok(());
+        }
+
+        // 余额不足，记录待提现，用户后续自行 claim
+        PENDING_WITHDRAWALS.set(
+            &nonce,
+            &PendingWithdrawal {
+                user,
+                token,
+                amount,
+                status: WITHDRAWAL_STATUS_PENDING,
+            },
+        );
         Ok(())
     }
 

@@ -212,3 +212,9 @@ type Tuple_27 struct { // Tuple
 	F2 types.U256
 	F3 types.U256
 }
+type PendingWithdrawal struct { // Composite
+	User   types.H160
+	Token  types.H160
+	Amount types.U256
+	Status byte
+}

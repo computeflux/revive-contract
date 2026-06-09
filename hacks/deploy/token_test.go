@@ -355,3 +355,78 @@ func TestTransErc20(t *testing.T) {
 	// 	t.Fatal("trans erc20:", err)
 	// }
 }
+
+func TestSetSubnet(t *testing.T) {
+	cfg := loadConfig(t)
+	client := newClient(t, cfg)
+	pk := newSigner(t, cfg)
+
+	tokenIns, err := token.InitTokenContract(client, cfg.Contracts.Token)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	param := chain.DefaultParamWithOrigin(pk.AccountID())
+	oldRate, _, _ := tokenIns.QueryGetSubnet(param)
+	fmt.Println("old rate:", oldRate.Hex())
+
+	addr, _ := util.HexToH160("0x82ca18a28793a7149247d1f20dc4d26393e56986")
+	err = tokenIns.ExecSetSubnet(addr, chain.ExecParams{
+		Signer:    pk,
+		PayAmount: types.NewU128(*big.NewInt(0)),
+	})
+	if err != nil {
+		t.Fatal("set_rate:", err)
+	}
+}
+
+func TestBatchSetUnitAndRate(t *testing.T) {
+	cfg := loadConfig(t)
+	client := newClient(t, cfg)
+	pk := newSigner(t, cfg)
+
+	tokenIns, err := token.InitTokenContract(client, cfg.Contracts.Token)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	param := chain.DefaultParamWithOrigin(pk.AccountID())
+
+	// 设置新的 Rate
+	newRate := types.NewU256(*new(big.Int).SetUint64(20_000))
+	callRate, err := tokenIns.CallOfSetRate(newRate, param)
+	if err != nil {
+		t.Fatal("call of set_rate:", err)
+	}
+
+	// 设置新的 Unit
+	newUnit := types.NewU256(*new(big.Int).SetUint64(100_000_000 * Unit))
+	callUnit, err := tokenIns.CallOfSetTokenUnit(newUnit, param)
+	if err != nil {
+		t.Fatal("call of set_token_unit:", err)
+	}
+
+	// batch_all 同时执行
+	calls := []types.Call{*callRate, *callUnit}
+	batchCall, err := client.BatchCall("batch_all", calls)
+	if err != nil {
+		t.Fatal("batch call error:", err)
+	}
+
+	if err := client.SignAndSubmit(pk, *batchCall, true, 0); err != nil {
+		t.Fatal("sign and submit:", err)
+	}
+
+	// 验证结果
+	rate, _, err := tokenIns.QueryGetRate(param)
+	if err != nil {
+		t.Fatal("get_rate:", err)
+	}
+	fmt.Println("new rate:", rate.String())
+
+	unit, _, err := tokenIns.QueryGetTokenUnit(param)
+	if err != nil {
+		t.Fatal("get_token_unit:", err)
+	}
+	fmt.Println("new unit:", unit.String())
+}

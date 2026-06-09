@@ -136,7 +136,7 @@ fn withdraw_returns_native_coin() {
 
     // Subnet 提 6 积分 → 3000 Planck 转给 Alice（积分余额由 TEE 校验）
     with_engine(|e| e.set_caller(subnet_addr().into()));
-    let res = token::withdraw(alice(), U256::from(6u64));
+    let res = token::withdraw(alice(), U256::from(6u64), 1u64);
     assert_eq!(res, Ok(()));
 }
 
@@ -292,7 +292,7 @@ fn withdraw_by_subnet_works() {
 
     // Subnet 提现（积分余额由 TEE 校验）
     with_engine(|e| e.set_caller(subnet_addr().into()));
-    let res = token::withdraw(alice(), U256::from(3000u64));
+    let res = token::withdraw(alice(), U256::from(3000u64), 2u64);
     assert_eq!(res, Ok(()));
 }
 
@@ -309,7 +309,7 @@ fn withdraw_by_non_subnet_fails() {
 
     // 非 Subnet 调用提现
     with_engine(|e| e.set_caller(alice().into()));
-    let res = token::withdraw(alice(), U256::from(1000u64));
+    let res = token::withdraw(alice(), U256::from(1000u64), 3u64);
     assert_eq!(res, Err(Error::OnlySubnet));
 }
 
@@ -319,7 +319,7 @@ fn withdraw_zero_amount_fails() {
     let _ = token::set_subnet(subnet_addr());
 
     with_engine(|e| e.set_caller(subnet_addr().into()));
-    let res = token::withdraw(alice(), U256::from(0u64));
+    let res = token::withdraw(alice(), U256::from(0u64), 4u64);
     assert_eq!(res, Err(Error::AmountMustBeGreaterThanZero));
 }
 
@@ -572,7 +572,7 @@ fn withdraw_erc20_by_non_subnet_fails() {
     setup_erc20(U256::from(1000u64), U256::from(1_000_000u64));
     let _ = token::set_subnet(subnet_addr());
     with_engine(|e| e.set_caller(alice().into()));
-    let res = token::withdraw_erc20(erc20_addr(), alice(), U256::from(1000u64));
+    let res = token::withdraw_erc20(erc20_addr(), alice(), U256::from(1000u64), 5u64);
     assert_eq!(res, Err(Error::OnlySubnet));
 }
 
@@ -581,7 +581,7 @@ fn withdraw_erc20_unregistered_fails() {
     setup_deployed_and_inited();
     let _ = token::set_subnet(subnet_addr());
     with_engine(|e| e.set_caller(subnet_addr().into()));
-    let res = token::withdraw_erc20(erc20_addr(), alice(), U256::from(1000u64));
+    let res = token::withdraw_erc20(erc20_addr(), alice(), U256::from(1000u64), 6u64);
     assert_eq!(res, Err(Error::ERC20NotSupported));
 }
 
@@ -596,7 +596,7 @@ fn withdraw_erc20_inactive_fails() {
         U256::from(1_000_000u64),
     );
     with_engine(|e| e.set_caller(subnet_addr().into()));
-    let res = token::withdraw_erc20(erc20_addr(), alice(), U256::from(1000u64));
+    let res = token::withdraw_erc20(erc20_addr(), alice(), U256::from(1000u64), 7u64);
     assert_eq!(res, Err(Error::ERC20Inactive));
 }
 
@@ -605,6 +605,36 @@ fn withdraw_erc20_zero_points_fails() {
     setup_erc20(U256::from(1000u64), U256::from(1_000_000u64));
     let _ = token::set_subnet(subnet_addr());
     with_engine(|e| e.set_caller(subnet_addr().into()));
-    let res = token::withdraw_erc20(erc20_addr(), alice(), U256::from(0u64));
+    let res = token::withdraw_erc20(erc20_addr(), alice(), U256::from(0u64), 8u64);
     assert_eq!(res, Err(Error::AmountMustBeGreaterThanZero));
+}
+
+#[test]
+fn withdraw_duplicate_nonce_returns_ok() {
+    setup_with_unit(U256::from(1u64), U256::from(1000u64));
+    let _ = token::set_subnet(subnet_addr());
+
+    with_engine(|e| e.set_caller(subnet_addr().into()));
+    let res = token::withdraw(alice(), U256::from(1000u64), 9u64);
+    assert_eq!(res, Ok(()));
+
+    // 重复 nonce 直接返回 Ok，不报错
+    with_engine(|e| e.set_caller(subnet_addr().into()));
+    let res = token::withdraw(alice(), U256::from(1000u64), 9u64);
+    assert_eq!(res, Ok(()));
+}
+
+#[test]
+fn withdraw_erc20_duplicate_nonce_returns_ok() {
+    setup_erc20(U256::from(1000u64), U256::from(1_000_000u64));
+    let _ = token::set_subnet(subnet_addr());
+
+    with_engine(|e| e.set_caller(subnet_addr().into()));
+    let res = token::withdraw_erc20(erc20_addr(), alice(), U256::from(1000u64), 10u64);
+    assert_eq!(res, Ok(()));
+
+    // 重复 nonce 直接返回 Ok，不报错
+    with_engine(|e| e.set_caller(subnet_addr().into()));
+    let res = token::withdraw_erc20(erc20_addr(), alice(), U256::from(1000u64), 10u64);
+    assert_eq!(res, Ok(()));
 }
