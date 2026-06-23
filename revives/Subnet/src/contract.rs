@@ -14,7 +14,7 @@ mod datas;
 mod errors;
 
 use wrevive_api::*;
-use wrevive_macro::{list_2d, mapping, revive_contract, storage};
+use wrevive_macro::{list, list_2d, mapping, revive_contract, storage};
 
 pub use datas::{
     AssetDeposit, AssetInfo, EpochInfo, Ip, K8sCluster, LevelRequirement, NodeID, RunPrice,
@@ -26,7 +26,7 @@ pub use primitives::{ensure, ok_or_err};
 #[revive_contract]
 pub mod subnet {
     use super::*;
-    use crate::datas::NodeID;
+    use crate::datas::{CodeVersion, NodeID};
     use crate::{Error, ensure};
 
     const GOV_CONTRACT: Storage<Address> = storage!(b"gov_contract");
@@ -38,7 +38,7 @@ pub mod subnet {
     const NEXT_WORKER_ID: Storage<u64> = storage!(b"next_worker_id");
     const NEXT_SECRET_ID: Storage<u64> = storage!(b"next_secret_id");
     const NEXT_ASSET_ID: Storage<u32> = storage!(b"next_asset_id");
-
+    const CODE_VERSIONS: List<u64, CodeVersion> = list!(b"code_versions");
     const REGIONS: Mapping<u32, Bytes> = mapping!(b"regions");
     const WORKER_STATUS: Mapping<u64, u8> = mapping!(b"worker_status");
     const OWNER_OF_WORKER: Mapping<Address, u64> = mapping!(b"owner_of_worker");
@@ -1417,6 +1417,44 @@ pub mod subnet {
             PENDING_VALIDATORS.clear(&pid);
         }
         PENDING_VALIDATOR_IDS.set(&Vec::new());
+    }
+
+    /// 添加 TEE 程序版本，返回分配的版本 ID
+    #[revive(message, write)]
+    pub fn add_code_version(signer: Bytes, signature: Bytes) -> Result<u64, Error> {
+        ensure_from_gov()?;
+        let id = CODE_VERSIONS.len();
+        CODE_VERSIONS
+            .insert(&CodeVersion { signer, signature })
+            .ok_or(Error::SetCodeFailed)?;
+        Ok(id)
+    }
+
+    /// 删除指定 TEE 程序版本
+    #[revive(message, write)]
+    pub fn delete_code_version(id: u64) -> Result<(), Error> {
+        ensure_from_gov()?;
+        CODE_VERSIONS.clear(&id);
+        Ok(())
+    }
+
+    /// 查询指定 TEE 程序版本
+    #[revive(message)]
+    pub fn code_version(id: u64) -> Option<CodeVersion> {
+        CODE_VERSIONS.get(&id)
+    }
+
+    /// 查询当前版本总数
+    #[revive(message)]
+    pub fn code_version_len() -> u64 {
+        CODE_VERSIONS.len()
+    }
+
+    /// 查询所有 TEE 程序版本列表
+    #[revive(message)]
+    pub fn code_versions() -> Vec<(u64, CodeVersion)> {
+        let total = CODE_VERSIONS.len();
+        CODE_VERSIONS.list(0u64, total as u32)
     }
 
     fn ensure_from_gov() -> Result<(), Error> {

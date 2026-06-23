@@ -5,6 +5,13 @@ use wrevive_api::{AccountId, Address, BlockNumber, Bytes, U256};
 
 pub use primitives::{AssetInfo, Ip, K8sCluster, NodeID, RunPrice};
 
+/// TEE 程序版本信息
+#[derive(Clone, PartialEq, Eq, Debug, Encode, Decode)]
+pub struct CodeVersion {
+    pub signer: Bytes,
+    pub signature: Bytes,
+}
+
 #[derive(Clone, PartialEq, Eq, Debug, Encode, Decode)]
 pub struct SecretNode {
     pub name: Bytes,
