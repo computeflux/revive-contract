@@ -12,4 +12,4 @@ hacks/deploy/deploy-contract
 hacks/deploy/deploy-full
 hacks/deploy/gen-key
 hacks/deploy/upgrade-contract
-hacks/deploy/config/*
+hacks/deploy/configs
