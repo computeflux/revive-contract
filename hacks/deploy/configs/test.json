@@ -1,0 +1,39 @@
+{
+    "url": "wss://asset-hub-paseo-rpc.n.dwellir.com",
+    "suri": "0x43c0defe545b31e6f64ee9c17b35c6444a8c3527f0c68160203717c51367512d",
+    "contracts": {
+        "subnet": "0x0d6dd3a07e04879d59fd2ed3967946a29f960e7e",
+        "token": "0xff9b30b99f1e5a24664b0eda2f24cd465cb60ea6"
+    },
+    "genesis": {
+        "secrets": [
+            {
+                "name": "node0",
+                "ss58": "5FJvXqe7WCNfDLTC8pRm89ry4JXUdkjvqLEuaRzRPLKXZK9F",
+                "p_ss58": "5D4fSrxgXXx9ah6GGpa2JEBLophEta2PPCDuAdihFdegqp45",
+                "ip": "xiaobai.asyou.me",
+                "port": 30116,
+                "bls_validator_key": "99a4312fc567b8835202023bbb8ed46020b9dc3716da705d1998ba3684864b021257c4d1d01bc87b84f683954a6eac6a01ed793714f2f2a5c4b565393aef585a45d041bdbd98e766f5e764b671f2f0af1c815383f14e875b451516f73aea8317"
+            },
+            {
+                "name": "node1",
+                "ss58": "5FyzEUvmd11HRL54orX5xZ3WJ247rSYU1auhRVDXXyxj5HEv",
+                "p_ss58": "5GUL5AEsbfzrBzGseKAgsoQ76iDo3D1hzbvvo2Jd9EBqWiGL",
+                "ip": "47.79.98.142",
+                "port": 30126,
+                "bls_validator_key": "89b283dae03fcac3ef0e26ee294778609b08d2bcc850976ea89d8772f4dd13f13427421f506131f3b6f8bb6fc47cc77004458fe046a723aa2b9bd06e45c6a0696d59034736695070e16a62cee47859ef82abf566b8673d566c857a2547d4e13c"
+            },
+            {
+                "name": "node2",
+                "ss58": "5Gaq14fsd2RJdTxWQmtV2HsdLsq9WaruMVmqiij56jvKZ4PD",
+                "p_ss58": "5Dh5Ko3LX4Fudjg1yWtWSe2RQHU5JPrqfTbTNLufLPtvx1NL",
+                "ip": "xiaobai.asyou.me",
+                "port": 30136,
+                "bls_validator_key": "85b1f120c3d56a9af109c249599406dd71f417aa0c195f04be39fac48f14b51b72e7bfea4fa4187e82a0fa445f905181002a13ab6b02db3ef2fc74112980717cefcbfbf32631f5eb52eacd089f9ff2d6ab42180e44051094e74bd738c9e706bc"
+            }
+        ],
+        "boot_nodes": [0, 1, 2],
+        "validators": [1, 2],
+        "region": "defalut"
+    }
+}

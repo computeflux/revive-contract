@@ -1,0 +1,14 @@
+{
+    "url": "wss://polkadot-asset-hub-rpc.polkadot.io",
+    "suri": "0x5b7aa2a9db6816f0f684d1b1d930c9ecc7037198c53e8e1a4750c0555de22866",
+    "contracts": {
+        "subnet": "",
+        "token": ""
+    },
+    "genesis": {
+        "secrets": [],
+        "boot_nodes": [],
+        "validators": [],
+        "region": "default"
+    }
+}
