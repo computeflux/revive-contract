@@ -368,15 +368,15 @@ func TestSetSubnet(t *testing.T) {
 
 	param := chain.DefaultParamWithOrigin(pk.AccountID())
 	oldRate, _, _ := tokenIns.QueryGetSubnet(param)
-	fmt.Println("old rate:", oldRate.Hex())
+	fmt.Println("old addr:", oldRate.Hex())
 
-	addr, _ := util.HexToH160("0x82ca18a28793a7149247d1f20dc4d26393e56986")
+	addr, _ := util.HexToH160("0x576afc0dab34389170845e9b996eca9017d2a505")
 	err = tokenIns.ExecSetSubnet(addr, chain.ExecParams{
 		Signer:    pk,
 		PayAmount: types.NewU128(*big.NewInt(0)),
 	})
 	if err != nil {
-		t.Fatal("set_rate:", err)
+		t.Fatal("set_subnet:", err)
 	}
 }
 
