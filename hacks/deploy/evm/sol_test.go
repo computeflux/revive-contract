@@ -46,17 +46,6 @@ func TestTokenSolOwner(t *testing.T) {
 	fmt.Printf("owner_sol() = %s\n", owner.Hex())
 }
 
-func TestTokenSolGetBalance(t *testing.T) {
-	token := newTokenCaller(t)
-	// 查 Alice 余额
-	alice := common.HexToAddress("0xf4a0ce74a91980053056a332fa8e0b4c43569fb3")
-	bal, err := token.GetBalanceSol(&bind.CallOpts{}, alice)
-	if err != nil {
-		t.Fatalf("GetBalanceSol: %v", err)
-	}
-	fmt.Printf("get_balance_sol(%s) = %s wei\n", alice.Hex(), bal.String())
-}
-
 func TestTokenSolToPoints(t *testing.T) {
 	token := newTokenCaller(t)
 	points, err := token.ToPointsSol(&bind.CallOpts{}, big.NewInt(10))
@@ -73,6 +62,5 @@ func TestTokenSolAll(t *testing.T) {
 
 	t.Run("GetRate", TestTokenSolGetRate)
 	t.Run("Owner", TestTokenSolOwner)
-	t.Run("GetBalance", TestTokenSolGetBalance)
 	t.Run("ToPoints", TestTokenSolToPoints)
 }

@@ -4,9 +4,11 @@
 package tokensol
 
 import (
+	"context"
 	"errors"
 	"math/big"
 	"strings"
+	"time"
 
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -27,11 +29,36 @@ var (
 	_ = types.BloomLookup
 	_ = event.NewSubscription
 	_ = abi.ConvertType
+	_ = time.Tick
+	_ = context.Background
 )
+
+// Struct1 is an auto generated low-level Go binding around an user-defined struct.
+type Struct1 struct {
+	User   common.Address
+	Token  common.Address
+	Amount *big.Int
+	Status uint8
+}
+
+// Struct0 is an auto generated low-level Go binding around an user-defined struct.
+type Struct0 struct {
+	Arg1 common.Address
+	Arg2 bool
+	Arg3 *big.Int
+	Arg4 *big.Int
+}
+
+// Struct2 is an auto generated low-level Go binding around an user-defined struct.
+type Struct2 struct {
+	Arg1 bool
+	Arg2 *big.Int
+	Arg3 *big.Int
+}
 
 // TokenMetaData contains all meta data concerning the Token contract.
 var TokenMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[],\"name\":\"recharge_sol\",\"outputs\":[{\"components\":[],\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"components\":[],\"name\":\"user\",\"type\":\"address\"},{\"components\":[],\"name\":\"points\",\"type\":\"uint256\"}],\"name\":\"withdraw_sol\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"components\":[],\"name\":\"user\",\"type\":\"address\"}],\"name\":\"get_balance_sol\",\"outputs\":[{\"components\":[],\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"components\":[],\"name\":\"dot_amount\",\"type\":\"uint256\"}],\"name\":\"to_points_sol\",\"outputs\":[{\"components\":[],\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"get_rate_sol\",\"outputs\":[{\"components\":[],\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner_sol\",\"outputs\":[{\"components\":[],\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"stateMutability\":\"nonpayable\",\"type\":\"fallback\"}]",
+	ABI: "[{\"inputs\":[],\"name\":\"recharge_sol\",\"outputs\":[{\"components\":[],\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"components\":[],\"name\":\"token\",\"type\":\"address\"},{\"components\":[],\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"recharge_erc20\",\"outputs\":[{\"components\":[],\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"components\":[],\"name\":\"dot_amount\",\"type\":\"uint256\"}],\"name\":\"to_points_sol\",\"outputs\":[{\"components\":[],\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"get_rate_sol\",\"outputs\":[{\"components\":[],\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner_sol\",\"outputs\":[{\"components\":[],\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"get_native_active_sol\",\"outputs\":[{\"components\":[],\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"components\":[],\"name\":\"token\",\"type\":\"address\"}],\"name\":\"get_erc20_config_sol\",\"outputs\":[{\"components\":[{\"components\":[],\"name\":\"arg1\",\"type\":\"bool\"},{\"components\":[],\"name\":\"arg2\",\"type\":\"uint256\"},{\"components\":[],\"name\":\"arg3\",\"type\":\"uint256\"}],\"name\":\"\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"get_erc20_count_sol\",\"outputs\":[{\"components\":[],\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"get_erc20_list_sol\",\"outputs\":[{\"components\":[{\"components\":[],\"name\":\"arg1\",\"type\":\"address\"},{\"components\":[],\"name\":\"arg2\",\"type\":\"bool\"},{\"components\":[],\"name\":\"arg3\",\"type\":\"uint256\"},{\"components\":[],\"name\":\"arg4\",\"type\":\"uint256\"}],\"name\":\"\",\"type\":\"tuple[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"components\":[],\"name\":\"nonce\",\"type\":\"uint64\"}],\"name\":\"get_pending_withdrawal_sol\",\"outputs\":[{\"components\":[{\"components\":[],\"name\":\"user\",\"type\":\"address\"},{\"components\":[],\"name\":\"token\",\"type\":\"address\"},{\"components\":[],\"name\":\"amount\",\"type\":\"uint256\"},{\"components\":[],\"name\":\"status\",\"type\":\"uint8\"}],\"name\":\"\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"components\":[],\"name\":\"nonce\",\"type\":\"uint64\"}],\"name\":\"claim_withdrawal_sol\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"components\":[],\"name\":\"nonce\",\"type\":\"uint64\"}],\"name\":\"cancel_withdrawal_sol\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"stateMutability\":\"nonpayable\",\"type\":\"fallback\"}]",
 }
 
 // TokenABI is the input ABI used to generate the binding from.
@@ -180,12 +207,43 @@ func (_Token *TokenTransactorRaw) Transact(opts *bind.TransactOpts, method strin
 	return _Token.Contract.contract.Transact(opts, method, params...)
 }
 
-// GetBalanceSol is a free data retrieval call binding the contract method 0x33097d86.
+// GetErc20ConfigSol is a free data retrieval call binding the contract method 0xb4094f72.
 //
-// Solidity: function get_balance_sol(address user) view returns(uint256)
-func (_Token *TokenCaller) GetBalanceSol(opts *bind.CallOpts, user common.Address) (*big.Int, error) {
+// Solidity: function get_erc20_config_sol(address token) view returns((bool,uint256,uint256))
+func (_Token *TokenCaller) GetErc20ConfigSol(opts *bind.CallOpts, token common.Address) (Struct2, error) {
 	var out []interface{}
-	err := _Token.contract.Call(opts, &out, "get_balance_sol", user)
+	err := _Token.contract.Call(opts, &out, "get_erc20_config_sol", token)
+
+	if err != nil {
+		return *new(Struct2), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(Struct2)).(*Struct2)
+
+	return out0, err
+
+}
+
+// GetErc20ConfigSol is a free data retrieval call binding the contract method 0xb4094f72.
+//
+// Solidity: function get_erc20_config_sol(address token) view returns((bool,uint256,uint256))
+func (_Token *TokenSession) GetErc20ConfigSol(token common.Address) (Struct2, error) {
+	return _Token.Contract.GetErc20ConfigSol(&_Token.CallOpts, token)
+}
+
+// GetErc20ConfigSol is a free data retrieval call binding the contract method 0xb4094f72.
+//
+// Solidity: function get_erc20_config_sol(address token) view returns((bool,uint256,uint256))
+func (_Token *TokenCallerSession) GetErc20ConfigSol(token common.Address) (Struct2, error) {
+	return _Token.Contract.GetErc20ConfigSol(&_Token.CallOpts, token)
+}
+
+// GetErc20CountSol is a free data retrieval call binding the contract method 0xbf29e1a7.
+//
+// Solidity: function get_erc20_count_sol() view returns(uint256)
+func (_Token *TokenCaller) GetErc20CountSol(opts *bind.CallOpts) (*big.Int, error) {
+	var out []interface{}
+	err := _Token.contract.Call(opts, &out, "get_erc20_count_sol")
 
 	if err != nil {
 		return *new(*big.Int), err
@@ -197,18 +255,111 @@ func (_Token *TokenCaller) GetBalanceSol(opts *bind.CallOpts, user common.Addres
 
 }
 
-// GetBalanceSol is a free data retrieval call binding the contract method 0x33097d86.
+// GetErc20CountSol is a free data retrieval call binding the contract method 0xbf29e1a7.
 //
-// Solidity: function get_balance_sol(address user) view returns(uint256)
-func (_Token *TokenSession) GetBalanceSol(user common.Address) (*big.Int, error) {
-	return _Token.Contract.GetBalanceSol(&_Token.CallOpts, user)
+// Solidity: function get_erc20_count_sol() view returns(uint256)
+func (_Token *TokenSession) GetErc20CountSol() (*big.Int, error) {
+	return _Token.Contract.GetErc20CountSol(&_Token.CallOpts)
 }
 
-// GetBalanceSol is a free data retrieval call binding the contract method 0x33097d86.
+// GetErc20CountSol is a free data retrieval call binding the contract method 0xbf29e1a7.
 //
-// Solidity: function get_balance_sol(address user) view returns(uint256)
-func (_Token *TokenCallerSession) GetBalanceSol(user common.Address) (*big.Int, error) {
-	return _Token.Contract.GetBalanceSol(&_Token.CallOpts, user)
+// Solidity: function get_erc20_count_sol() view returns(uint256)
+func (_Token *TokenCallerSession) GetErc20CountSol() (*big.Int, error) {
+	return _Token.Contract.GetErc20CountSol(&_Token.CallOpts)
+}
+
+// GetErc20ListSol is a free data retrieval call binding the contract method 0x5c0c36b0.
+//
+// Solidity: function get_erc20_list_sol() view returns((address,bool,uint256,uint256)[])
+func (_Token *TokenCaller) GetErc20ListSol(opts *bind.CallOpts) ([]Struct0, error) {
+	var out []interface{}
+	err := _Token.contract.Call(opts, &out, "get_erc20_list_sol")
+
+	if err != nil {
+		return *new([]Struct0), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([]Struct0)).(*[]Struct0)
+
+	return out0, err
+
+}
+
+// GetErc20ListSol is a free data retrieval call binding the contract method 0x5c0c36b0.
+//
+// Solidity: function get_erc20_list_sol() view returns((address,bool,uint256,uint256)[])
+func (_Token *TokenSession) GetErc20ListSol() ([]Struct0, error) {
+	return _Token.Contract.GetErc20ListSol(&_Token.CallOpts)
+}
+
+// GetErc20ListSol is a free data retrieval call binding the contract method 0x5c0c36b0.
+//
+// Solidity: function get_erc20_list_sol() view returns((address,bool,uint256,uint256)[])
+func (_Token *TokenCallerSession) GetErc20ListSol() ([]Struct0, error) {
+	return _Token.Contract.GetErc20ListSol(&_Token.CallOpts)
+}
+
+// GetNativeActiveSol is a free data retrieval call binding the contract method 0x3c71900b.
+//
+// Solidity: function get_native_active_sol() view returns(bool)
+func (_Token *TokenCaller) GetNativeActiveSol(opts *bind.CallOpts) (bool, error) {
+	var out []interface{}
+	err := _Token.contract.Call(opts, &out, "get_native_active_sol")
+
+	if err != nil {
+		return *new(bool), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+
+	return out0, err
+
+}
+
+// GetNativeActiveSol is a free data retrieval call binding the contract method 0x3c71900b.
+//
+// Solidity: function get_native_active_sol() view returns(bool)
+func (_Token *TokenSession) GetNativeActiveSol() (bool, error) {
+	return _Token.Contract.GetNativeActiveSol(&_Token.CallOpts)
+}
+
+// GetNativeActiveSol is a free data retrieval call binding the contract method 0x3c71900b.
+//
+// Solidity: function get_native_active_sol() view returns(bool)
+func (_Token *TokenCallerSession) GetNativeActiveSol() (bool, error) {
+	return _Token.Contract.GetNativeActiveSol(&_Token.CallOpts)
+}
+
+// GetPendingWithdrawalSol is a free data retrieval call binding the contract method 0xbaa174cd.
+//
+// Solidity: function get_pending_withdrawal_sol(uint64 nonce) view returns((address,address,uint256,uint8))
+func (_Token *TokenCaller) GetPendingWithdrawalSol(opts *bind.CallOpts, nonce uint64) (Struct1, error) {
+	var out []interface{}
+	err := _Token.contract.Call(opts, &out, "get_pending_withdrawal_sol", nonce)
+
+	if err != nil {
+		return *new(Struct1), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(Struct1)).(*Struct1)
+
+	return out0, err
+
+}
+
+// GetPendingWithdrawalSol is a free data retrieval call binding the contract method 0xbaa174cd.
+//
+// Solidity: function get_pending_withdrawal_sol(uint64 nonce) view returns((address,address,uint256,uint8))
+func (_Token *TokenSession) GetPendingWithdrawalSol(nonce uint64) (Struct1, error) {
+	return _Token.Contract.GetPendingWithdrawalSol(&_Token.CallOpts, nonce)
+}
+
+// GetPendingWithdrawalSol is a free data retrieval call binding the contract method 0xbaa174cd.
+//
+// Solidity: function get_pending_withdrawal_sol(uint64 nonce) view returns((address,address,uint256,uint8))
+func (_Token *TokenCallerSession) GetPendingWithdrawalSol(nonce uint64) (Struct1, error) {
+	return _Token.Contract.GetPendingWithdrawalSol(&_Token.CallOpts, nonce)
 }
 
 // GetRateSol is a free data retrieval call binding the contract method 0x14ed3508.
@@ -304,46 +455,88 @@ func (_Token *TokenCallerSession) ToPointsSol(dot_amount *big.Int) (*big.Int, er
 	return _Token.Contract.ToPointsSol(&_Token.CallOpts, dot_amount)
 }
 
+// CancelWithdrawalSol is a paid mutator transaction binding the contract method 0x13164112.
+//
+// Solidity: function cancel_withdrawal_sol(uint64 nonce) returns()
+func (_Token *TokenTransactor) CancelWithdrawalSol(opts *bind.TransactOpts, nonce uint64) (*types.Transaction, error) {
+	return _Token.contract.Transact(opts, "cancel_withdrawal_sol", nonce)
+}
+
+// CancelWithdrawalSol is a paid mutator transaction binding the contract method 0x13164112.
+//
+// Solidity: function cancel_withdrawal_sol(uint64 nonce) returns()
+func (_Token *TokenSession) CancelWithdrawalSol(nonce uint64) (*types.Transaction, error) {
+	return _Token.Contract.CancelWithdrawalSol(&_Token.TransactOpts, nonce)
+}
+
+// CancelWithdrawalSol is a paid mutator transaction binding the contract method 0x13164112.
+//
+// Solidity: function cancel_withdrawal_sol(uint64 nonce) returns()
+func (_Token *TokenTransactorSession) CancelWithdrawalSol(nonce uint64) (*types.Transaction, error) {
+	return _Token.Contract.CancelWithdrawalSol(&_Token.TransactOpts, nonce)
+}
+
+// ClaimWithdrawalSol is a paid mutator transaction binding the contract method 0x0d43a902.
+//
+// Solidity: function claim_withdrawal_sol(uint64 nonce) returns()
+func (_Token *TokenTransactor) ClaimWithdrawalSol(opts *bind.TransactOpts, nonce uint64) (*types.Transaction, error) {
+	return _Token.contract.Transact(opts, "claim_withdrawal_sol", nonce)
+}
+
+// ClaimWithdrawalSol is a paid mutator transaction binding the contract method 0x0d43a902.
+//
+// Solidity: function claim_withdrawal_sol(uint64 nonce) returns()
+func (_Token *TokenSession) ClaimWithdrawalSol(nonce uint64) (*types.Transaction, error) {
+	return _Token.Contract.ClaimWithdrawalSol(&_Token.TransactOpts, nonce)
+}
+
+// ClaimWithdrawalSol is a paid mutator transaction binding the contract method 0x0d43a902.
+//
+// Solidity: function claim_withdrawal_sol(uint64 nonce) returns()
+func (_Token *TokenTransactorSession) ClaimWithdrawalSol(nonce uint64) (*types.Transaction, error) {
+	return _Token.Contract.ClaimWithdrawalSol(&_Token.TransactOpts, nonce)
+}
+
+// RechargeErc20 is a paid mutator transaction binding the contract method 0xbed17916.
+//
+// Solidity: function recharge_erc20(address token, uint256 amount) returns(uint256)
+func (_Token *TokenTransactor) RechargeErc20(opts *bind.TransactOpts, token common.Address, amount *big.Int) (*types.Transaction, error) {
+	return _Token.contract.Transact(opts, "recharge_erc20", token, amount)
+}
+
+// RechargeErc20 is a paid mutator transaction binding the contract method 0xbed17916.
+//
+// Solidity: function recharge_erc20(address token, uint256 amount) returns(uint256)
+func (_Token *TokenSession) RechargeErc20(token common.Address, amount *big.Int) (*types.Transaction, error) {
+	return _Token.Contract.RechargeErc20(&_Token.TransactOpts, token, amount)
+}
+
+// RechargeErc20 is a paid mutator transaction binding the contract method 0xbed17916.
+//
+// Solidity: function recharge_erc20(address token, uint256 amount) returns(uint256)
+func (_Token *TokenTransactorSession) RechargeErc20(token common.Address, amount *big.Int) (*types.Transaction, error) {
+	return _Token.Contract.RechargeErc20(&_Token.TransactOpts, token, amount)
+}
+
 // RechargeSol is a paid mutator transaction binding the contract method 0xf924a387.
 //
-// Solidity: function recharge_sol() returns(uint256)
+// Solidity: function recharge_sol() payable returns(uint256)
 func (_Token *TokenTransactor) RechargeSol(opts *bind.TransactOpts) (*types.Transaction, error) {
 	return _Token.contract.Transact(opts, "recharge_sol")
 }
 
 // RechargeSol is a paid mutator transaction binding the contract method 0xf924a387.
 //
-// Solidity: function recharge_sol() returns(uint256)
+// Solidity: function recharge_sol() payable returns(uint256)
 func (_Token *TokenSession) RechargeSol() (*types.Transaction, error) {
 	return _Token.Contract.RechargeSol(&_Token.TransactOpts)
 }
 
 // RechargeSol is a paid mutator transaction binding the contract method 0xf924a387.
 //
-// Solidity: function recharge_sol() returns(uint256)
+// Solidity: function recharge_sol() payable returns(uint256)
 func (_Token *TokenTransactorSession) RechargeSol() (*types.Transaction, error) {
 	return _Token.Contract.RechargeSol(&_Token.TransactOpts)
-}
-
-// WithdrawSol is a paid mutator transaction binding the contract method 0xafde79c9.
-//
-// Solidity: function withdraw_sol(address user, uint256 points) returns()
-func (_Token *TokenTransactor) WithdrawSol(opts *bind.TransactOpts, user common.Address, points *big.Int) (*types.Transaction, error) {
-	return _Token.contract.Transact(opts, "withdraw_sol", user, points)
-}
-
-// WithdrawSol is a paid mutator transaction binding the contract method 0xafde79c9.
-//
-// Solidity: function withdraw_sol(address user, uint256 points) returns()
-func (_Token *TokenSession) WithdrawSol(user common.Address, points *big.Int) (*types.Transaction, error) {
-	return _Token.Contract.WithdrawSol(&_Token.TransactOpts, user, points)
-}
-
-// WithdrawSol is a paid mutator transaction binding the contract method 0xafde79c9.
-//
-// Solidity: function withdraw_sol(address user, uint256 points) returns()
-func (_Token *TokenTransactorSession) WithdrawSol(user common.Address, points *big.Int) (*types.Transaction, error) {
-	return _Token.Contract.WithdrawSol(&_Token.TransactOpts, user, points)
 }
 
 // Fallback is a paid mutator transaction binding the contract fallback function.

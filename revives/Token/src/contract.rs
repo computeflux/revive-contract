@@ -209,6 +209,11 @@ pub mod token {
         recharge_erc20_impl(token, amount)
     }
 
+    #[revive(message, write)]
+    pub fn recharge_erc20_codec(token: Address, amount: U256) -> Result<U256, Error> {
+        recharge_erc20_impl(token, amount)
+    }
+
     // ========== Relay 查询 ==========
     #[revive(message)]
     pub fn get_latest_nonce() -> u64 {
@@ -743,22 +748,22 @@ pub mod token {
     /// 构造 transfer(address,uint256) calldata
     fn build_transfer_calldata(to: &Address, amount: U256) -> Vec<u8> {
         let mut data = Vec::with_capacity(4 + 32 + 32);
-        data.extend_from_slice(&[0xa9, 0x05, 0x9c, 0xbb]); // selector
-        data.extend_from_slice(&[0u8; 12]); // left-pad address
+        data.extend_from_slice(&[0xa9, 0x05, 0x9c, 0xbb]); // selector: transfer(address,uint256)
+        data.extend_from_slice(&[0u8; 12]); // pay to
         data.extend_from_slice(to.as_ref());
-        data.extend_from_slice(&amount.to_be_bytes()); // 大端
+        data.extend_from_slice(&amount.to_be_bytes()); // pay amount
         data
     }
 
     /// 构造 transferFrom(address,address,uint256) calldata
     fn build_transfer_from_calldata(from: &Address, to: &Address, amount: U256) -> Vec<u8> {
         let mut data = Vec::with_capacity(4 + 32 * 3);
-        data.extend_from_slice(&[0x23, 0xb8, 0x72, 0xdd]); // selector
-        data.extend_from_slice(&[0u8; 12]); // left-pad from
+        data.extend_from_slice(&[0x23, 0xb8, 0x72, 0xdd]); // selector: transferFrom(address,address,uint256)
+        data.extend_from_slice(&[0u8; 12]); // pay from
         data.extend_from_slice(from.as_ref());
-        data.extend_from_slice(&[0u8; 12]); // left-pad to
+        data.extend_from_slice(&[0u8; 12]); // pay to
         data.extend_from_slice(to.as_ref());
-        data.extend_from_slice(&amount.to_be_bytes()); // 大端
+        data.extend_from_slice(&amount.to_be_bytes()); // pay amount
         data
     }
 
@@ -766,7 +771,7 @@ pub mod token {
     fn build_balance_of_calldata(account: &Address) -> Vec<u8> {
         let mut data = Vec::with_capacity(4 + 32);
         data.extend_from_slice(&[0x70, 0xa0, 0x82, 0x31]); // selector: balanceOf(address)
-        data.extend_from_slice(&[0u8; 12]); // left-pad address
+        data.extend_from_slice(&[0u8; 12]); // address
         data.extend_from_slice(account.as_ref());
         data
     }
