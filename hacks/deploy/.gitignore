@@ -1,0 +1,3 @@
+# 前端构建产物（api-ui.sh 自动同步，无需提交）
+cmd/api-server/web/*
+!cmd/api-server/web/.gitkeep

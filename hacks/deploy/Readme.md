@@ -280,3 +280,62 @@ A: 部署结束后程序会打印合约地址，可通过 Go 测试文件中的�
 cd hacks/deploy
 go test -run ^TestCloudUpdate$ -v
 ```
+
+---
+
+## API 服务与 Web UI
+
+部署、升级与合约函数调用全部封装为 REST API，前端产物由 api-server **内嵌托管**
+（单服务单端口，同源请求无 CORS），UI 基于 cathome/workflow/board 改造，位于 `ui/`。
+
+```bash
+# 一键构建前端 + 启动（默认端口 8000）
+./api-ui.sh
+
+# 指定端口
+PORT=9000 ./api-ui.sh
+```
+
+打开 http://127.0.0.1:8000 即可在浏览器中完成：
+
+- **总览**：环境（local/test/main）、签名账户、余额、合约地址
+- **合约部署**：单合约部署 / 全量部署（subnet+token+proxy+创世初始化）/ 热升级
+- **合约调试**：动态函数表单，查询（DryRun）与交易调用，结果展示
+- **账户管理**：查看账户、执行 Revive Map Account
+
+### API 接口
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/api/health` | 健康检查 |
+| GET | `/api/envs` | 环境列表（脱敏） |
+| GET | `/api/envs/{env}` | 环境详情 + 账户信息 |
+| POST | `/api/account/{env}/map` | Revive Map Account |
+| GET | `/api/contracts/{env}/{name}/methods` | 合约方法清单（含参数定义，驱动前端表单） |
+| POST | `/api/contracts/{env}/{name}/call` | 通用合约调用（exec / query） |
+| POST | `/api/contracts/{env}/{name}/batch` | 批量交易（CallOf + batch_all，一次签名） |
+| POST | `/api/deploy` | 单合约部署 |
+| POST | `/api/deploy-full` | 全量部署 |
+| POST | `/api/upgrade` | 合约热升级（token / subnet） |
+| GET | `/`（及 SPA 路由） | 前端页面（内嵌 dist，构建产物同步自 `ui/dist`） |
+
+**通用调用示例**（等价于 `go test` 里的 `QueryGetRate` / `ExecSetRate`）：
+
+```bash
+# 查询（DryRun）
+curl -X POST http://127.0.0.1:8000/api/contracts/test/token/call \
+  -H 'Content-Type: application/json' \
+  -d '{"method":"get_rate","kind":"query","args":{}}'
+
+# 交易（需要签名账户有 gas）
+curl -X POST http://127.0.0.1:8000/api/contracts/test/token/call \
+  -H 'Content-Type: application/json' \
+  -d '{"method":"set_rate","kind":"exec","args":{"new_rate":"20000"}}'
+
+# 批量交易（等价于 token_test.go 的 TestBatchSetUnitAndRate）
+curl -X POST http://127.0.0.1:8000/api/contracts/test/token/batch \
+  -H 'Content-Type: application/json' \
+  -d '{"calls":[{"method":"set_rate","args":{"new_rate":"20000"}},{"method":"set_token_unit","args":{"unit":"1000000000000000000"}}]}'
+```
+
+支持的合约与函数清单见 `cmd/api-server/registry.go`，添加新函数只需在注册表中增加一行。

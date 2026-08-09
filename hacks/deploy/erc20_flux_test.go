@@ -30,7 +30,7 @@ type FluxConfig struct {
 
 func loadFluxConfig(t *testing.T) *FluxConfig {
 	t.Helper()
-	path := filepath.Join("..", "..", "tee-node", "ext", "actives", "flux_config.json")
+	path := filepath.Join("..", "..", "..", "tee-node", "ext", "actives", "flux_config.json")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("read flux config %s: %v", path, err)
@@ -75,6 +75,22 @@ func TestRechargeErc20(t *testing.T) {
 	amount := big.NewInt(1e18)
 	fluxAddr := common.HexToAddress(fCfg.TokenAddress)
 
+	// 0. 确保 signer 有足够的 FLUXT 余额（不足则 owner 调用 batchMint 铸造）
+	bal := balanceOfToken(cli, fluxAddr, signer)
+	fmt.Println("FLUXT balance:", bal.String())
+	if bal.Cmp(amount) < 0 {
+		mintCalldata := batchMintCalldata([]common.Address{signer}, []*big.Int{amount})
+		// 注意：pallet-revive 对合约内 native 转账（0.5 ether/人）的 gas 要求极高，
+		// gasLimit 必须给足（~500 万），否则执行到转账处 OOG revert
+		txMint, err := sendEVMTx(cli, key, chainID, fluxAddr, nil, 5000000, mintCalldata)
+		if err != nil {
+			t.Fatal("batchMint:", err)
+		}
+		fmt.Println("batchMint:", txMint.Hash().Hex())
+		waitReceipt(t, cli, txMint.Hash())
+		fmt.Println("minted, balance:", balanceOfToken(cli, fluxAddr, signer).String())
+	}
+
 	// 0. 查询充值前 EVENT_NONCE（SCALE 编码，手动 calldata）
 	nonceBefore := getEventNonce(t, cli, uupsToken)
 
@@ -88,6 +104,7 @@ func TestRechargeErc20(t *testing.T) {
 		t.Fatal("approve:", err)
 	}
 	fmt.Println("approve:", tx1.Hash().Hex())
+	waitReceipt(t, cli, tx1.Hash()) // 等待确认，确保 allowance 生效
 
 	// 2. recharge_erc20: 使用 Token 绑定
 	transactOpts, err := bind.NewKeyedTransactorWithChainID(key, chainID)
@@ -99,8 +116,7 @@ func TestRechargeErc20(t *testing.T) {
 		t.Fatalf("recharge: %v", err)
 	}
 	fmt.Println("recharge:", tx2.Hash().Hex())
-
-	time.Sleep(time.Second * 10)
+	waitReceipt(t, cli, tx2.Hash())
 
 	// 3. 查询充值后 EVENT_NONCE，验证 +1
 	nonceAfter := getEventNonce(t, cli, uupsToken)
@@ -108,6 +124,52 @@ func TestRechargeErc20(t *testing.T) {
 		t.Fatalf("EVENT_NONCE did not increment: before=%d, after=%d", nonceBefore, nonceAfter)
 	}
 	t.Logf("EVENT_NONCE: %d -> %d (OK)", nonceBefore, nonceAfter)
+}
+
+// waitReceipt 轮询等待交易确认，失败则直接 Fatal
+func waitReceipt(t *testing.T, cli *ethclient.Client, hash common.Hash) *ethtypes.Receipt {
+	t.Helper()
+	for i := 0; i < 60; i++ {
+		rcpt, err := cli.TransactionReceipt(context.Background(), hash)
+		if err == nil {
+			if rcpt.Status != 1 {
+				t.Fatalf("tx %s failed with status %d", hash.Hex(), rcpt.Status)
+			}
+			return rcpt
+		}
+		time.Sleep(2 * time.Second)
+	}
+	t.Fatalf("tx %s not confirmed after 120s", hash.Hex())
+	return nil
+}
+
+// balanceOfToken 手动 calldata 查询 ERC20 余额
+func balanceOfToken(cli *ethclient.Client, token common.Address, who common.Address) *big.Int {
+	sel := crypto.Keccak256Hash([]byte("balanceOf(address)")).Bytes()[:4]
+	data := append(append([]byte{}, sel...), padAddress(who)...)
+	ret, err := callEVM(cli, token, data)
+	if err != nil || len(ret) < 32 {
+		return big.NewInt(0)
+	}
+	return new(big.Int).SetBytes(ret[:32])
+}
+
+// batchMintCalldata 手动 ABI 编码 batchMint(address[],uint256[])
+func batchMintCalldata(tos []common.Address, amounts []*big.Int) []byte {
+	sel := crypto.Keccak256Hash([]byte("batchMint(address[],uint256[])")).Bytes()[:4]
+	headSize := 4 + 32 + 32 // selector + 2 个动态数组 offset
+	data := append([]byte{}, sel...)
+	data = append(data, padU256(big.NewInt(int64(headSize)))...)
+	data = append(data, padU256(big.NewInt(int64(headSize+32+len(tos)*32)))...)
+	data = append(data, padU256(big.NewInt(int64(len(tos))))...)
+	for _, to := range tos {
+		data = append(data, padAddress(to)...)
+	}
+	data = append(data, padU256(big.NewInt(int64(len(amounts))))...)
+	for _, a := range amounts {
+		data = append(data, padU256(a)...)
+	}
+	return data
 }
 
 func sendEVMTx(cli *ethclient.Client, key *ecdsa.PrivateKey, chainID *big.Int, to common.Address, value *big.Int, gasLimit uint64, data []byte) (*ethtypes.Transaction, error) {

@@ -229,7 +229,7 @@ func TestSetErc20Token(t *testing.T) {
 	fmt.Println("erc20 count before:", countBefore)
 
 	// 注册一个 ERC20 代币
-	erc20Addr, err := util.HexToH160("0x179843f0804D92e85A22b3B105bb33A68a790A4E")
+	erc20Addr, err := util.HexToH160("0x49ddfeB55C06238Cd390F474e8672EAef9BD3762")
 	if err != nil {
 		t.Fatal("invalid erc20 address:", err)
 	}

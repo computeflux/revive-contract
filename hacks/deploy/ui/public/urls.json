@@ -1,0 +1,23 @@
+{
+  "host": "xxxx",
+  "services": [
+    {
+      "name": "workflow",
+      "label": "Workflow",
+      "description": "业务工作流与管理后台（board）",
+      "url": "http://xxxx:5173/"
+    },
+    {
+      "name": "contract-console",
+      "label": "合约控制台",
+      "description": "合约部署与交互控制台",
+      "url": "http://xxxx:8000/"
+    },
+    {
+      "name": "chain-monitor",
+      "label": "链上监控",
+      "description": "链上数据与事件监控",
+      "url": "http://xxxx:8002/"
+    }
+  ]
+}
