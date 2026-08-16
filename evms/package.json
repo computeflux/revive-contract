@@ -8,6 +8,8 @@
     "test:gas": "REPORT_GAS=true npx hardhat test --config hardhat.config.polkadot.js",
     "deploy": "npx hardhat run hack/deploy_subnet_token.js --config hardhat.config.polkadot.js --network polkadotTestnet",
     "deploy:erc20": "npx hardhat run hack/deploy_erc20.js --config hardhat.config.polkadot.js --network polkadotTestnet",
+    "deploy:flux": "npx hardhat run hack/deploy_flux_test.js --config hardhat.config.polkadot.js --network polkadotTestnet",
+    "upgrade:flux": "npx hardhat run hack/upgrade_flux_test.js --config hardhat.config.polkadot.js --network polkadotTestnet",
     "upgrade": "npx hardhat run hack/upgrade_subnet_token.js --config hardhat.config.polkadot.js --network polkadotTestnet",
     "node": "npx hardhat node --config hardhat.config.polkadot.js",
     "clean": "npx hardhat clean --config hardhat.config.polkadot.js"

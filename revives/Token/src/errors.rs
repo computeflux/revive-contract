@@ -24,4 +24,6 @@ pub enum Error {
     ERC20TransferFailed,
     /// Native token 充值已禁用
     NativeDisabled,
+    /// 积分低于最小值
+    PointsBelowMinimum,
 }

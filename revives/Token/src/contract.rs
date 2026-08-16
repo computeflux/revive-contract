@@ -572,8 +572,8 @@ pub mod token {
         // 换算积分: points = amount * rate / unit
         let points = amount * config.rate / config.unit;
         ensure!(
-            points > U256::from(0u64),
-            Error::AmountMustBeGreaterThanZero
+            points >= U256::from(1_999_000u64),
+            Error::PointsBelowMinimum
         );
 
         // 积分由 TEE 子链管理，合约只发事件

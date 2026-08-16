@@ -19,6 +19,21 @@
 
 const hre = require("hardhat");
 
+/// 获取 ERC1967Proxy 工厂：优先 hardhat 编译产物，缺失时回退到
+/// @openzeppelin/contracts 自带的编译产物（hardhat clean 后 artifacts 会被清掉）
+async function getERC1967ProxyFactory() {
+  try {
+    return await hre.ethers.getContractFactory("ERC1967Proxy");
+  } catch (e) {
+    if (String(e.message).includes("HH700")) {
+      const ozArtifact = require("@openzeppelin/contracts/build/contracts/ERC1967Proxy.json");
+      const [signer] = await hre.ethers.getSigners();
+      return new hre.ethers.ContractFactory(ozArtifact.abi, ozArtifact.bytecode, signer);
+    }
+    throw e;
+  }
+}
+
 async function main() {
   const [deployer] = await hre.ethers.getSigners();
   console.log("Deployer:", deployer.address);
@@ -40,7 +55,7 @@ async function main() {
   ]);
 
   // 1c. 部署代理合约
-  const ERC1967Proxy = await hre.ethers.getContractFactory("ERC1967Proxy");
+  const ERC1967Proxy = await getERC1967ProxyFactory();
   const tokenProxy = await ERC1967Proxy.deploy(
     await tokenImpl.getAddress(),
     tokenInitData
