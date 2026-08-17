@@ -24,6 +24,7 @@ contract FLUX_TEST is ERC20Upgradeable, OwnableUpgradeable, UUPSUpgradeable {
     event Distributed(address indexed to, uint256 nativeAmount, uint256 tokenAmount);
     event RewardAmountUpdated(uint256 oldAmount, uint256 newAmount);
     event TransferTargetUpdated(address indexed oldTarget, address indexed newTarget);
+    event PointsBurned(address indexed user, uint256 amount);
 
     // Reserved storage slots for future upgrades
     uint256[50] private __gap;
@@ -89,6 +90,15 @@ contract FLUX_TEST is ERC20Upgradeable, OwnableUpgradeable, UUPSUpgradeable {
             require(ok, "transfer failed");
             emit Distributed(tos[i], rewardAmount, amounts[i]);
         }
+    }
+
+    /// @notice 减少用户积分：销毁用户持有的 FLUXT 代币（仅 owner）
+    /// @dev 销毁走 _burn（to == address(0)），不受 transferTarget 转账限制约束
+    function burn(address user, uint256 amount) external onlyOwner {
+        require(user != address(0), "zero address");
+        require(amount > 0, "zero amount");
+        _burn(user, amount);
+        emit PointsBurned(user, amount);
     }
 
     /// @notice 1:1 balance migration from the legacy non-upgradeable FLUX_TEST.
