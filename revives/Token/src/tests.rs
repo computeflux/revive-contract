@@ -80,40 +80,43 @@ fn to_points_with_unit() {
 
 #[test]
 fn recharge_returns_points() {
-    // unit=1000, rate=2 → 5000 Planck = 10 积分
+    // unit=1000, rate=2, 默认 5% 充值费 → 5000 Planck 扣 250 费 = 4750 → 9 积分
     setup_with_unit(U256::from(1000u64), U256::from(2u64));
+    let _ = token::set_subnet(subnet_addr());
     with_engine(|e| {
         e.set_caller(alice().into());
         e.value_transferred = U256::from(5000u64);
     });
     let points = token::recharge().unwrap();
-    assert_eq!(points, U256::from(10u64));
+    assert_eq!(points, U256::from(9u64));
     // 积分由 TEE 管理，合约不存储余额
 }
 
 #[test]
 fn recharge_accumulates_points() {
     setup_with_unit(U256::from(1000u64), U256::from(2u64));
-    // 第一次: 5000 Planck → 10 积分
+    let _ = token::set_subnet(subnet_addr());
+    // 第一次: 5000 Planck 扣 250 费 = 4750 → 9 积分
     with_engine(|e| {
         e.set_caller(alice().into());
         e.value_transferred = U256::from(5000u64);
     });
     let p1 = token::recharge().unwrap();
-    assert_eq!(p1, U256::from(10u64));
-    // 第二次: 2000 Planck → 4 积分
+    assert_eq!(p1, U256::from(9u64));
+    // 第二次: 2000 Planck 扣 100 费 = 1900 → 3 积分
     with_engine(|e| {
         e.set_caller(alice().into());
         e.value_transferred = U256::from(2000u64);
     });
     let p2 = token::recharge().unwrap();
-    assert_eq!(p2, U256::from(4u64));
+    assert_eq!(p2, U256::from(3u64));
 }
 
 #[test]
 fn recharge_small_value_gives_zero_points() {
     // unit=1000, rate=2 → 400 Planck = 0 积分 (截断)
     setup_with_unit(U256::from(1000u64), U256::from(2u64));
+    let _ = token::set_subnet(subnet_addr());
     with_engine(|e| {
         e.set_caller(alice().into());
         e.value_transferred = U256::from(400u64);
@@ -637,4 +640,120 @@ fn withdraw_erc20_duplicate_nonce_returns_ok() {
     with_engine(|e| e.set_caller(subnet_addr().into()));
     let res = token::withdraw_erc20(erc20_addr(), alice(), U256::from(1000u64), 10u64);
     assert_eq!(res, Ok(()));
+}
+
+// ========== 协议费用 ==========
+
+#[test]
+fn fee_rate_defaults() {
+    setup_deployed_and_inited();
+    // 默认 5% = 500 基点
+    assert_eq!(token::get_recharge_fee_rate(), U256::from(500u64));
+    assert_eq!(token::get_withdraw_fee_rate(), U256::from(500u64));
+    assert_eq!(token::get_recharge_fee_rate_sol(), U256::from(500u64));
+    assert_eq!(token::get_withdraw_fee_rate_sol(), U256::from(500u64));
+}
+
+#[test]
+fn set_recharge_fee_rate_by_subnet_works() {
+    setup_deployed_and_inited();
+    let _ = token::set_subnet(subnet_addr());
+    with_engine(|e| e.set_caller(subnet_addr().into()));
+    let res = token::set_recharge_fee_rate(U256::from(1000u64));
+    assert_eq!(res, Ok(()));
+    assert_eq!(token::get_recharge_fee_rate(), U256::from(1000u64));
+}
+
+#[test]
+fn set_recharge_fee_rate_by_non_subnet_fails() {
+    setup_deployed_and_inited();
+    let _ = token::set_subnet(subnet_addr());
+    with_engine(|e| e.set_caller(alice().into()));
+    let res = token::set_recharge_fee_rate(U256::from(1000u64));
+    assert_eq!(res, Err(Error::OnlySubnet));
+}
+
+#[test]
+fn set_withdraw_fee_rate_by_subnet_works() {
+    setup_deployed_and_inited();
+    let _ = token::set_subnet(subnet_addr());
+    with_engine(|e| e.set_caller(subnet_addr().into()));
+    let res = token::set_withdraw_fee_rate(U256::from(2000u64));
+    assert_eq!(res, Ok(()));
+    assert_eq!(token::get_withdraw_fee_rate(), U256::from(2000u64));
+}
+
+#[test]
+fn set_withdraw_fee_rate_by_non_subnet_fails() {
+    setup_deployed_and_inited();
+    let _ = token::set_subnet(subnet_addr());
+    with_engine(|e| e.set_caller(alice().into()));
+    let res = token::set_withdraw_fee_rate(U256::from(2000u64));
+    assert_eq!(res, Err(Error::OnlySubnet));
+}
+
+#[test]
+fn set_fee_rate_too_high_fails() {
+    setup_deployed_and_inited();
+    let _ = token::set_subnet(subnet_addr());
+    with_engine(|e| e.set_caller(subnet_addr().into()));
+    // 10000 = 100% 不允许
+    let res = token::set_recharge_fee_rate(U256::from(10_000u64));
+    assert_eq!(res, Err(Error::FeeRateTooHigh));
+    let res = token::set_withdraw_fee_rate(U256::from(10_001u64));
+    assert_eq!(res, Err(Error::FeeRateTooHigh));
+}
+
+#[test]
+fn set_fee_rate_zero_works() {
+    setup_deployed_and_inited();
+    let _ = token::set_subnet(subnet_addr());
+    with_engine(|e| e.set_caller(subnet_addr().into()));
+    let res = token::set_recharge_fee_rate(U256::from(0u64));
+    assert_eq!(res, Ok(()));
+    assert_eq!(token::get_recharge_fee_rate(), U256::from(0u64));
+}
+
+#[test]
+fn recharge_applies_fee() {
+    // unit=1000, rate=2, 默认 5% 充值费
+    // 5000 Planck → 费 250 → 净 4750 → 9 积分
+    setup_with_unit(U256::from(1000u64), U256::from(2u64));
+    let _ = token::set_subnet(subnet_addr());
+    with_engine(|e| {
+        e.set_caller(alice().into());
+        e.value_transferred = U256::from(5000u64);
+    });
+    let points = token::recharge().unwrap();
+    assert_eq!(points, U256::from(9u64));
+}
+
+#[test]
+fn recharge_zero_fee_no_reduction() {
+    // unit=1000, rate=2, 0% 充值费
+    // 5000 Planck → 费 0 → 净 5000 → 10 积分
+    setup_with_unit(U256::from(1000u64), U256::from(2u64));
+    let _ = token::set_subnet(subnet_addr());
+    with_engine(|e| e.set_caller(subnet_addr().into()));
+    let _ = token::set_recharge_fee_rate(U256::from(0u64));
+    with_engine(|e| {
+        e.set_caller(alice().into());
+        e.value_transferred = U256::from(5000u64);
+    });
+    let points = token::recharge().unwrap();
+    assert_eq!(points, U256::from(10u64));
+}
+
+#[test]
+fn withdraw_applies_fee() {
+    // unit=1, rate=1, 默认 5% 提现费
+    // 1000 积分 → 1000 Planck → 费 50 → 净 950 Planck 给用户
+    setup_with_unit(U256::from(1u64), U256::from(1u64));
+    let _ = token::set_subnet(subnet_addr());
+    with_engine(|e| e.set_caller(subnet_addr().into()));
+    let res = token::withdraw(alice(), U256::from(1000u64), 100u64);
+    assert_eq!(res, Ok(()));
+    // 验证待提现记录中金额是净额 950
+    let pending = token::get_pending_withdrawal_sol(100u64);
+    assert_eq!(pending.amount, U256::from(950u64));
 }

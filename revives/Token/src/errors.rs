@@ -26,4 +26,6 @@ pub enum Error {
     NativeDisabled,
     /// 积分低于最小值
     PointsBelowMinimum,
+    /// 费率过高 (>= 100%)
+    FeeRateTooHigh,
 }

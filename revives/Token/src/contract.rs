@@ -81,6 +81,11 @@ pub mod token {
     /// Native token 充值开关 (默认开启)
     const NATIVE_ACTIVE: Storage<bool> = storage!(b"native_active");
 
+    /// 充值协议费率 (基点, 10000 = 100%, 默认 500 = 5%)
+    const RECHARGE_FEE_RATE: Storage<U256> = storage!(b"recharge_fee_rate");
+    /// 提现协议费率 (基点, 10000 = 100%, 默认 500 = 5%)
+    const WITHDRAW_FEE_RATE: Storage<U256> = storage!(b"withdraw_fee_rate");
+
     /// 全局事件 nonce
     const EVENT_NONCE: Storage<u64> = storage!(b"event_nonce");
     /// 事件存储: nonce → EventRecord
@@ -149,6 +154,24 @@ pub mod token {
     pub fn set_native_active(active: bool) -> Result<(), Error> {
         ensure_owner()?;
         NATIVE_ACTIVE.set(&active);
+        Ok(())
+    }
+
+    /// 设置充值协议费率 (基点, 10000 = 100%)，仅 SUBNET 可设置
+    #[revive(message, write)]
+    pub fn set_recharge_fee_rate(rate: U256) -> Result<(), Error> {
+        ensure_subnet()?;
+        ensure!(rate < U256::from(10_000u64), Error::FeeRateTooHigh);
+        RECHARGE_FEE_RATE.set(&rate);
+        Ok(())
+    }
+
+    /// 设置提现协议费率 (基点, 10000 = 100%)，仅 SUBNET 可设置
+    #[revive(message, write)]
+    pub fn set_withdraw_fee_rate(rate: U256) -> Result<(), Error> {
+        ensure_subnet()?;
+        ensure!(rate < U256::from(10_000u64), Error::FeeRateTooHigh);
+        WITHDRAW_FEE_RATE.set(&rate);
         Ok(())
     }
 
@@ -271,6 +294,18 @@ pub mod token {
         NATIVE_ACTIVE.get().unwrap_or(true) // 默认开启
     }
 
+    /// 充值协议费率 (基点, 10000 = 100%, 默认 500 = 5%)
+    #[revive(message)]
+    pub fn get_recharge_fee_rate() -> U256 {
+        RECHARGE_FEE_RATE.get().unwrap_or(U256::from(500u64))
+    }
+
+    /// 提现协议费率 (基点, 10000 = 100%, 默认 500 = 5%)
+    #[revive(message)]
+    pub fn get_withdraw_fee_rate() -> U256 {
+        WITHDRAW_FEE_RATE.get().unwrap_or(U256::from(500u64))
+    }
+
     #[revive(message)]
     pub fn get_subnet() -> Address {
         SUBNET.get().unwrap_or(Address::zero())
@@ -306,6 +341,18 @@ pub mod token {
     #[revive(message, sol)]
     pub fn get_native_active_sol() -> bool {
         NATIVE_ACTIVE.get().unwrap_or(true) // 默认开启
+    }
+
+    /// 充值协议费率 (Sol ABI, 基点)
+    #[revive(message, sol)]
+    pub fn get_recharge_fee_rate_sol() -> U256 {
+        RECHARGE_FEE_RATE.get().unwrap_or(U256::from(500u64))
+    }
+
+    /// 提现协议费率 (Sol ABI, 基点)
+    #[revive(message, sol)]
+    pub fn get_withdraw_fee_rate_sol() -> U256 {
+        WITHDRAW_FEE_RATE.get().unwrap_or(U256::from(500u64))
     }
 
     // ========== ERC20 查询 ==========
@@ -461,7 +508,16 @@ pub mod token {
             if !NATIVE_ACTIVE.get().unwrap_or(true) {
                 api.return_value(ReturnFlags::REVERT, &[]);
             }
-            let points = value_to_points(value);
+            // 收取协议费用，转到 SUBNET 地址
+            let fee = value * get_recharge_fee_rate() / U256::from(10_000u64);
+            let net_value = value - fee;
+            if fee > U256::from(0u64) {
+                let subnet = SUBNET.get().unwrap_or(Address::zero());
+                if subnet != Address::zero() {
+                    let _ = api.transfer(&subnet, &fee);
+                }
+            }
+            let points = value_to_points(net_value);
             let caller = api.caller();
 
             // 积分由 TEE 子链管理，合约只发事件
@@ -482,7 +538,17 @@ pub mod token {
         let value = api.value_transferred();
         ensure!(value > U256::from(0u64), Error::AmountMustBeGreaterThanZero);
 
-        let points = value_to_points(value);
+        // 收取协议费用，转到 SUBNET 地址
+        let fee = value * get_recharge_fee_rate() / U256::from(10_000u64);
+        let net_value = value - fee;
+        if fee > U256::from(0u64) {
+            let subnet = SUBNET.get().unwrap_or(Address::zero());
+            ensure!(subnet != Address::zero(), Error::ZeroAddress);
+            api.transfer(&subnet, &fee)
+                .map_err(|_| Error::TransferFailed)?;
+        }
+
+        let points = value_to_points(net_value);
         ensure!(
             points > U256::from(0u64),
             Error::AmountMustBeGreaterThanZero
@@ -513,16 +579,27 @@ pub mod token {
         }
 
         // 积分余额由 TEE 子链校验，合约记录待提现
-        let eth_amount = points_to_value(points);
+        let native_amount = points_to_value(points);
         ensure!(
-            eth_amount > U256::from(0u64),
+            native_amount > U256::from(0u64),
             Error::AmountMustBeGreaterThanZero
         );
 
+        // 收取协议费用，转到 SUBNET 地址，用户收到净额
+        let fee = native_amount * get_withdraw_fee_rate() / U256::from(10_000u64);
+        let net_amount = native_amount - fee;
+
         // 余额充足则直接转账，无需用户后续 claim
-        if env().balance() >= eth_amount {
+        if env().balance() >= native_amount {
+            if fee > U256::from(0u64) {
+                let subnet = SUBNET.get().unwrap_or(Address::zero());
+                ensure!(subnet != Address::zero(), Error::ZeroAddress);
+                env()
+                    .transfer(&subnet, &fee)
+                    .map_err(|_| Error::TransferFailed)?;
+            }
             env()
-                .transfer(&user, &eth_amount)
+                .transfer(&user, &net_amount)
                 .map_err(|_| Error::TransferFailed)?;
 
             PENDING_WITHDRAWALS.set(
@@ -530,7 +607,7 @@ pub mod token {
                 &PendingWithdrawal {
                     user,
                     token: Address::zero(),
-                    amount: eth_amount,
+                    amount: net_amount,
                     status: WITHDRAWAL_STATUS_DONE,
                 },
             );
@@ -547,7 +624,7 @@ pub mod token {
             &PendingWithdrawal {
                 user,
                 token: Address::zero(),
-                amount: eth_amount,
+                amount: net_amount,
                 status: WITHDRAWAL_STATUS_PENDING,
             },
         );
@@ -569,8 +646,18 @@ pub mod token {
         let calldata = build_transfer_from_calldata(&caller, &contract_addr, amount);
         let _ = call_erc20(&token, &calldata).map_err(|_| Error::ERC20TransferFailed)?;
 
-        // 换算积分: points = amount * rate / unit
-        let points = amount * config.rate / config.unit;
+        // 收取协议费用，转到 SUBNET 地址
+        let fee = amount * get_recharge_fee_rate() / U256::from(10_000u64);
+        let net_amount = amount - fee;
+        if fee > U256::from(0u64) {
+            let subnet = SUBNET.get().unwrap_or(Address::zero());
+            ensure!(subnet != Address::zero(), Error::ZeroAddress);
+            let fee_calldata = build_transfer_calldata(&subnet, fee);
+            call_erc20(&token, &fee_calldata).map_err(|_| Error::ERC20TransferFailed)?;
+        }
+
+        // 换算积分: points = net_amount * rate / unit
+        let points = net_amount * config.rate / config.unit;
         ensure!(
             points >= U256::from(1_999_000u64),
             Error::PointsBelowMinimum
@@ -612,6 +699,10 @@ pub mod token {
             Error::AmountMustBeGreaterThanZero
         );
 
+        // 收取协议费用，转到 SUBNET 地址，用户收到净额
+        let fee = amount * get_withdraw_fee_rate() / U256::from(10_000u64);
+        let net_amount = amount - fee;
+
         // 查询合约持有的 ERC20 余额
         let balance_calldata = build_balance_of_calldata(&env().address());
         let contract_balance =
@@ -619,7 +710,13 @@ pub mod token {
 
         // 余额充足则直接转账，无需用户后续 claim
         if contract_balance >= amount {
-            let transfer_calldata = build_transfer_calldata(&user, amount);
+            if fee > U256::from(0u64) {
+                let subnet = SUBNET.get().unwrap_or(Address::zero());
+                ensure!(subnet != Address::zero(), Error::ZeroAddress);
+                let fee_calldata = build_transfer_calldata(&subnet, fee);
+                call_erc20(&token, &fee_calldata).map_err(|_| Error::ERC20TransferFailed)?;
+            }
+            let transfer_calldata = build_transfer_calldata(&user, net_amount);
             call_erc20(&token, &transfer_calldata)?;
 
             PENDING_WITHDRAWALS.set(
@@ -627,7 +724,7 @@ pub mod token {
                 &PendingWithdrawal {
                     user,
                     token,
-                    amount,
+                    amount: net_amount,
                     status: WITHDRAWAL_STATUS_DONE,
                 },
             );
@@ -644,7 +741,7 @@ pub mod token {
             &PendingWithdrawal {
                 user,
                 token,
-                amount,
+                amount: net_amount,
                 status: WITHDRAWAL_STATUS_PENDING,
             },
         );
