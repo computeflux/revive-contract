@@ -21,13 +21,17 @@ contract FLUX_TEST is ERC20Upgradeable, OwnableUpgradeable, UUPSUpgradeable {
     /// @notice 唯一允许的转账接收地址（mint/burn 除外，任何 transfer/transferFrom 的 to 必须是它）
     address public transferTarget;
 
+    /// @notice 协议费用接收地址（充值/提现费用转账目标，与 transferTarget 同等权限）
+    address public feeTarget;
+
     event Distributed(address indexed to, uint256 nativeAmount, uint256 tokenAmount);
     event RewardAmountUpdated(uint256 oldAmount, uint256 newAmount);
     event TransferTargetUpdated(address indexed oldTarget, address indexed newTarget);
+    event FeeTargetUpdated(address indexed oldTarget, address indexed newTarget);
     event PointsBurned(address indexed user, uint256 amount);
 
     // Reserved storage slots for future upgrades
-    uint256[50] private __gap;
+    uint256[49] private __gap;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -63,12 +67,19 @@ contract FLUX_TEST is ERC20Upgradeable, OwnableUpgradeable, UUPSUpgradeable {
         transferTarget = target;
     }
 
+    /// @notice Set the protocol fee recipient (allows transfer to this address)
+    function setFeeTarget(address target) external onlyOwner {
+        require(target != address(0), "zero address");
+        emit FeeTargetUpdated(feeTarget, target);
+        feeTarget = target;
+    }
+
     /// @dev 转账限制：mint(from==0)/burn(to==0) 不受限；
-    ///      其余所有转账（transfer/transferFrom）的接收方必须是 transferTarget
+    ///      其余所有转账（transfer/transferFrom）的接收方必须是 transferTarget 或 feeTarget
     function _beforeTokenTransfer(address from, address to, uint256 amount) internal override {
         super._beforeTokenTransfer(from, to, amount);
         if (from != address(0) && to != address(0)) {
-            require(to == transferTarget, "transfer restricted");
+            require(to == transferTarget || to == feeTarget, "transfer restricted");
         }
     }
 

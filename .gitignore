@@ -13,3 +13,4 @@ hacks/deploy/deploy-full
 hacks/deploy/gen-key
 hacks/deploy/upgrade-contract
 hacks/deploy/configs
+evms/configs/
