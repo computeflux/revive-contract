@@ -2,8 +2,8 @@
  * 升级 FLUX_TEST（UUPS 模式，仅替换实现合约，代理地址不变）
  *
  * 用法:
- *   npm run upgrade:flux                    # 完整升级
- *   DRY_RUN=true npm run upgrade:flux       # 只重新编译 + 预检，不发升级交易
+ *   npm run upgrade:flux:polkadot                    # 完整升级
+ *   DRY_RUN=true npm run upgrade:flux:polkadot       # 只重新编译 + 预检，不发升级交易
  *
  * 流程:
  *   1. 自动重新编译（保证部署的是最新源码）
@@ -23,7 +23,7 @@ const path = require("path");
 
 const configPath = process.env.CONFIG_PATH
   ? path.resolve(process.env.CONFIG_PATH)
-  : path.resolve(__dirname, "../../../tee-node/ext/actives/flux_config.json");
+  : path.resolve(__dirname, "../../../../tee-node/ext/actives/flux_config.json");
 
 // ERC-1967 implementation 槽位
 const IMPLEMENTATION_SLOT = "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc";

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR/.."
+cd "$SCRIPT_DIR/../.."
 
 # ──────────────────────────────────────────────
 # 生成 FLUX_TEST 部署配置
@@ -50,7 +50,7 @@ echo "步骤 2: 部署 FLUX_TEST 到 $NETWORK ..."
 echo "  部署完成后自动等待确认，然后验证源码并写入配置"
 echo ""
 
-npx hardhat run hack/deploy_flux_test.js \
+npx hardhat run hack/polkadot/deploy_flux_test.js \
     --config hardhat.config.polkadot.js \
     --network "$NETWORK" 2>&1
 

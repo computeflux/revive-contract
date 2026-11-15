@@ -6,10 +6,10 @@ set -euo pipefail
 #
 # 用法:
 #   chmod +x transfer_erc20.sh
-#   ./transfer_erc20.sh <合约地址> <接收地址> <数量>
+#   ./hack/polkadot/transfer_erc20.sh <合约地址> <接收地址> <数量>
 #
 # 示例:
-#   ./transfer_erc20.sh 0x1234... 0xabcd... 100
+#   ./hack/polkadot/transfer_erc20.sh 0x1234... 0xabcd... 100
 #
 # 环境变量:
 #   PRIVATE_KEY=0x...  (必填，也可放在 .env 文件中)
@@ -62,7 +62,7 @@ export ERC20_ADDRESS="$TOKEN_ADDRESS"
 export ERC20_TO="$TO_ADDRESS"
 export ERC20_AMOUNT="$AMOUNT"
 
-npx hardhat run hack/transfer_erc20.js \
+npx hardhat run hack/polkadot/transfer_erc20.js \
     --config hardhat.config.polkadot.js \
     --network polkadotTestnet
 

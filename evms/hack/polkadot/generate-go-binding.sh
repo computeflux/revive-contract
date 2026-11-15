@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR/.."
+cd "$SCRIPT_DIR/../.."
 
 echo "========================================="
 echo "生成合约 Go 绑定"
@@ -29,7 +29,7 @@ echo "✅ 合约编译成功"
 echo ""
 
 # 3. 生成 Go 绑定
-OUT_DIR="$SCRIPT_DIR/../../token/service"
+OUT_DIR="$SCRIPT_DIR/../../../token/service"
 
 generate_binding() {
     local contract_name="$1"

@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.20;
 
-/// @title BLS Gateway
+/// @title EthBLS Gateway
 /// @notice 通过 BLS12-381 阈值签名验证提交交易到目标合约
-/// @dev 使用 EIP-2537 预编译进行 BLS 配对验证
+/// @dev 使用 EIP-2537 预编译进行 BLS 配对验证（Ethereum 主网 Fusaka / Polkadot Hub 等
+///      激活了 BLS 预编译的 L1 链）；Base 网络用 BaseBLS.sol（hmG1 由调用方提供）
 /// @dev 权限由目标合约（Subnet）代理，BLS 本身不存储 govContract
-contract BLS {
+contract EthBLS {
     address public target;
 
     // 聚合公钥（G2 point，256 bytes EIP-2537 格式）
@@ -95,11 +96,13 @@ contract BLS {
         if (result.length != 32 || uint256(bytes32(result)) != 1) revert BLSSignatureInvalid();
     }
 
-    /// @dev 使用 EIP-2537 BLS12_MAP_FP_TO_G1 (0x10) 预编译将 keccak256 哈希映射到 G1
+    /// @dev Use EIP-2537 BLS12_MAP_FP_TO_G1 (0x10) to map keccak256 hash to G1.
+    /// @dev EIP-2537 input layout: 64 bytes, value occupies the LAST 32 bytes
+    ///      (bytes 32..64). A zero-padded prefix in bytes 0..32 is ignored.
     function _mapFpToG1(bytes32 input) internal view returns (bytes memory) {
         bytes memory fpInput = new bytes(64);
         for (uint i = 0; i < 32; i++) {
-            fpInput[16 + i] = input[i];
+            fpInput[32 + i] = input[i];
         }
         (bool success, bytes memory result) = address(0x10).staticcall(fpInput);
         if (!success || result.length != 128) revert MapFpToG1Failed();

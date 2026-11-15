@@ -9,7 +9,7 @@ while [ -h "$SOURCE" ]; do
     [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
 done
 DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
-ROOT="$(cd "$DIR/.." && pwd)"
+ROOT="$(cd "$DIR/../.." && pwd)"
 
 # ── Source .env if present ─────────────────────────────────
 if [[ -f "$ROOT/.env" ]]; then
@@ -39,7 +39,7 @@ Options:
   --private-key <hex>   Deployer private key (0x...), overrides PRIVATE_KEY env var
   --ecdsa-key <hex>     tee-provider ECDSA private key (0x...), overrides ECDSA_KEY env var
 
-Config files (hack/configs/<env>.json):
+Config files (hack/polkadot/configs/<env>.json):
   rpc_url               Blockchain RPC URL
   chain_id              Network chain ID
   hardhat_network       Hardhat network name (must match hardhat.config.polkadot.js)
@@ -76,7 +76,7 @@ CONFIG_FILE="$DIR/configs/$ENV.json"
 if [[ ! -f "$CONFIG_FILE" ]]; then
     echo "Error: config file not found: $CONFIG_FILE" >&2
     echo "Available configs:" >&2
-    ls "$DIR/configs/" >&2
+    ls "$DIR/../configs/" >&2
     exit 1
 fi
 
@@ -148,7 +148,7 @@ if [[ "$SKIP_DEPLOY" == "true" ]]; then
 else
     echo "--- Deploying Subnet + Token ---"
     DEPLOY_OUTPUT="$(mktemp)"
-    npx hardhat run hack/deploy_subnet_token.js \
+    npx hardhat run hack/polkadot/deploy_subnet_token.js \
         --config hardhat.config.polkadot.js \
         --network "$HARDHAT_NETWORK" | tee "$DEPLOY_OUTPUT"
 
@@ -170,7 +170,7 @@ fi
 echo "--- Initializing Subnet chain data ---"
 export SUBNET_CONTRACT_ADDRESS="$SUBNET_ADDR"
 export CONFIG_FILE="$CONFIG_FILE"
-npx hardhat run hack/init_subnet_data.js \
+npx hardhat run hack/polkadot/init_subnet_data.js \
     --config hardhat.config.polkadot.js \
     --network "$HARDHAT_NETWORK"
 

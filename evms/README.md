@@ -21,8 +21,8 @@ cp .env.example .env
 ## Common commands
 
 ```bash
-npm run compile
-npm run test
+npm run compile:polkadot
+npm run test:polkadot
 ```
 
 ### Deploy

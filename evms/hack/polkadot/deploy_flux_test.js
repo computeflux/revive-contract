@@ -16,7 +16,7 @@ const fs = require("fs");
 const path = require("path");
 
 // ── 自动从 actives 配置加载私钥 ────────────────────────────
-const configPath = path.resolve(__dirname, "../../../tee-node/ext/actives/flux_config.json");
+const configPath = path.resolve(__dirname, "../../../../tee-node/ext/actives/flux_config.json");
 
 // 必须存在 flux_config.json 且包含 private_key
 if (!fs.existsSync(configPath)) {

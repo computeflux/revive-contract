@@ -1,0 +1,15 @@
+{
+  "rpc_url": "https://mainnet.base.org",
+  "chain_id": 8453,
+  "explorer": "https://basescan.org",
+  "private_key": "0x0000000000000000000000000000000000000000000000000000000000000000",
+  "token": {
+    "owner": null,
+    "rate": "4000",
+    "token_unit": "1000000000000000000",
+    "native_active": true,
+    "recharge_fee_rate": 0,
+    "withdraw_fee_rate": 0,
+    "erc20_tokens": []
+  }
+}

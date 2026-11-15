@@ -11,7 +11,7 @@ const path = require("path");
 
 const configPath = process.env.CONFIG_PATH
   ? path.resolve(process.env.CONFIG_PATH)
-  : path.resolve(__dirname, "../configs/flux_config_test.json");
+  : path.resolve(__dirname, "../../configs/flux_config_test.json");
 
 async function main() {
   const cfg = JSON.parse(fs.readFileSync(configPath, "utf8"));

@@ -1,3 +1,6 @@
+// Hardhat config for Polkadot Hub (AssetHub) contracts — Subnet / Token / FLUX /
+// ERC20. Base (OP-Stack, EIP-2537 BLS gateway) configuration lives in
+// hardhat.config.base.js.
 require("@nomicfoundation/hardhat-toolbox");
 require("@nomicfoundation/hardhat-verify");
 require("dotenv").config();
@@ -41,18 +44,6 @@ module.exports = {
     localhost: {
       url: "http://127.0.0.1:8545",
       chainId: 31337,
-    },
-    // Ethereum 测试网（保留）
-    sepolia: {
-      url: process.env.SEPOLIA_RPC_URL || "",
-      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
-      chainId: 11155111,
-    },
-    // Ethereum 主网（保留）
-    mainnet: {
-      url: process.env.MAINNET_RPC_URL || "",
-      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
-      chainId: 1,
     },
   },
   etherscan: {

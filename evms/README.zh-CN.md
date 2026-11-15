@@ -21,8 +21,8 @@ cp .env.example .env
 ## 常用命令
 
 ```bash
-npm run compile
-npm run test
+npm run compile:polkadot
+npm run test:polkadot
 ```
 
 ### 部署

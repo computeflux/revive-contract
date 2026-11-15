@@ -2,8 +2,8 @@
  * 部署 Subnet + Token 合约（UUPS 可升级模式）
  *
  * 用法:
- *   npm run deploy          # 部署到 polkadotTestnet
- *   npm run deploy:local    # 部署到本地网络
+ *   npm run deploy:polkadot      # 部署到 polkadotTestnet
+ *   npm run deploy:polkadot -- --network localhost  # 本地网络
  *
  * 环境变量 (在 .env 文件中):
  *   PRIVATE_KEY=0x...   部署者私钥
@@ -76,7 +76,7 @@ async function main() {
 
   // ── 3. 部署 BLS 合约 ────────────────────────────────────
   console.log("\n--- 3. Deploy BLS ---");
-  const BLS = await hre.ethers.getContractFactory("BLS");
+  const BLS = await hre.ethers.getContractFactory("EthBLS");
   // G2 generator in EIP-2537 format (256 bytes zero-padded)
   // x0=0x180... y0=0x... (placeholder zeros for now; real value set post-deploy)
   const g2Generator = new Uint8Array(256);

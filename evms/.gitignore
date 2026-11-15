@@ -32,3 +32,8 @@ npm-debug.log*
 # Testing
 coverage/
 coverage.json
+
+# Base chain configs embed private keys (private_key) — never commit.
+# Committed templates: hack/base/configs/*.example.json
+hack/*/configs/*.json
+!hack/*/configs/*.example.json

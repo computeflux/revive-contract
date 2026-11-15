@@ -67,7 +67,7 @@ async function main() {
     process.exit(1);
   }
 
-  const configPath = process.env.CONFIG_FILE || "hack/configs/local.json";
+  const configPath = process.env.CONFIG_FILE || "hack/polkadot/configs/local.json";
   if (!fs.existsSync(configPath)) {
     console.error("Error: config file not found:", configPath);
     process.exit(1);

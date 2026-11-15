@@ -1,0 +1,100 @@
+{
+  "baseSepolia": [
+    {
+      "contract": "Token",
+      "implementation": "0xFC3552Eb437c01C7985498d5177C2fEe50cE67F1",
+      "proxy": "0xb7f812414D87C5A4c1F24271500590F93c032971",
+      "deployer": "0x9D573489d9D49eCD970E399D97AF6Be20cDf65Ce",
+      "chainId": 84532,
+      "timestamp": "2026-11-14T03:36:40.746Z"
+    },
+    {
+      "contract": "BaseBLS",
+      "address": "0x2630753460c5ac664551cef818EbDe214680F755",
+      "target": "0xb7f812414D87C5A4c1F24271500590F93c032971",
+      "aggPubkey": "0x0000000000000000000000000000000000148cedda9f1b376f3366f9c8afd574a8f2c63a7665a454a5d1015824dadef87dd9b2a06acc1dc0a4ed8ae6ef2ea3390000000000000000000000000000000009e5fd970a4ec0d34038ee19f3fce70c527e55d52e9bb70ec995e69e9bc966d7c212be9a741769af98eebfcb7a92dda10000000000000000000000000000000016a10d8de4f119b3ec70b80a696832115d0f68eb7b7558d3446d812226f8cad4fa3176334844786dd5779a51f16ed9830000000000000000000000000000000004d7080f9b88bd3b8371a979bf393e6ff4ef43e8be92e6c14a26ac926ecac55affc8e4d04746e94c8e5aa8366166432d",
+      "deployer": "0x9D573489d9D49eCD970E399D97AF6Be20cDf65Ce",
+      "chainId": 84532,
+      "timestamp": "2026-11-14T03:37:06.029Z"
+    },
+    {
+      "contract": "BaseBLS",
+      "address": "0x19a2C8449944c76160B928DA6975680E9564450e",
+      "target": "0xcaA66fa831730f1946004505B328209a5213f0a7",
+      "relayShim": "0xcaA66fa831730f1946004505B328209a5213f0a7",
+      "aggPubkey": "0x0000000000000000000000000000000000148cedda9f1b376f3366f9c8afd574a8f2c63a7665a454a5d1015824dadef87dd9b2a06acc1dc0a4ed8ae6ef2ea3390000000000000000000000000000000009e5fd970a4ec0d34038ee19f3fce70c527e55d52e9bb70ec995e69e9bc966d7c212be9a741769af98eebfcb7a92dda10000000000000000000000000000000016a10d8de4f119b3ec70b80a696832115d0f68eb7b7558d3446d812226f8cad4fa3176334844786dd5779a51f16ed9830000000000000000000000000000000004d7080f9b88bd3b8371a979bf393e6ff4ef43e8be92e6c14a26ac926ecac55affc8e4d04746e94c8e5aa8366166432d",
+      "deployer": "0x9D573489d9D49eCD970E399D97AF6Be20cDf65Ce",
+      "chainId": 84532,
+      "timestamp": "2026-11-14T03:38:48.522Z"
+    },
+    {
+      "contract": "integrate",
+      "token": "0xb7f812414D87C5A4c1F24271500590F93c032971",
+      "bls": "0x19a2C8449944c76160B928DA6975680E9564450e",
+      "chainId": 84532,
+      "timestamp": "2026-11-14T03:38:48.523Z"
+    },
+    {
+      "contract": "BaseBLS-eoa",
+      "address": "0x160F27168c71413e9Eed99a83cB090EEE5Da7235",
+      "target": "0x9D573489d9D49eCD970E399D97AF6Be20cDf65Ce",
+      "aggPubkey": "0x0000000000000000000000000000000000148cedda9f1b376f3366f9c8afd574a8f2c63a7665a454a5d1015824dadef87dd9b2a06acc1dc0a4ed8ae6ef2ea3390000000000000000000000000000000009e5fd970a4ec0d34038ee19f3fce70c527e55d52e9bb70ec995e69e9bc966d7c212be9a741769af98eebfcb7a92dda10000000000000000000000000000000016a10d8de4f119b3ec70b80a696832115d0f68eb7b7558d3446d812226f8cad4fa3176334844786dd5779a51f16ed9830000000000000000000000000000000004d7080f9b88bd3b8371a979bf393e6ff4ef43e8be92e6c14a26ac926ecac55affc8e4d04746e94c8e5aa8366166432d",
+      "note": "target=deployer EOA; setAggPubkey works via direct tx from target. submit/batchSubmit verified on this instance (pairing + target.call).",
+      "deployer": "0x9D573489d9D49eCD970E399D97AF6Be20cDf65Ce",
+      "chainId": 84532,
+      "timestamp": "2026-11-14T04:18:11.626Z"
+    },
+    {
+      "contract": "integrate",
+      "token": "0xb7f812414D87C5A4c1F24271500590F93c032971",
+      "bls": "0x160F27168c71413e9Eed99a83cB090EEE5Da7235",
+      "note": "Token.subnet -> BaseBLS-eoa (target=deployer EOA, aggPubkey set)",
+      "chainId": 84532,
+      "timestamp": "2026-11-14T04:18:30.528Z"
+    },
+    {
+      "contract": "Token",
+      "implementation": "0x0eBFcbDA82979f22F1AfCDaF7cbe9A3E56A8C05e",
+      "proxy": "0xC7701fC65125C0a5cdBc760806F8fCf33D2aD2E0",
+      "deployer": "0x9D573489d9D49eCD970E399D97AF6Be20cDf65Ce",
+      "chainId": 84532,
+      "timestamp": "2026-11-14T09:54:12.402Z"
+    },
+    {
+      "contract": "BaseBLS",
+      "address": "0xbDa07a5120001ba0000775d26A7FC790C40B1E0a",
+      "target": "0xC7701fC65125C0a5cdBc760806F8fCf33D2aD2E0",
+      "aggPubkey": "0x00000000000000000000000000000000018f015c1f39438e4040865bfe3574e94edea9d4ac020a871da371f4eccd7884b36e72d13c309d4d949753c4f38e20740000000000000000000000000000000014a169ad3489eb67d45a76c90deb57a6374acdfe8cdc35c434e67ff0b5d4db182dac961925a40af273471216b9eeb241000000000000000000000000000000000ae68134ac11d1cdfa586f460ea2691737c0b2a4810ac6b14d21ab85626f01200cfe64869bfb880ede1a2377db8d85d4000000000000000000000000000000001337cd7b5c340e50999bee596b3fafc6d487cbfedf74796a206a1bf14f67062a2aa7aa601ccc916ed1059a7e14bc2631",
+      "deployer": "0x9D573489d9D49eCD970E399D97AF6Be20cDf65Ce",
+      "chainId": 84532,
+      "timestamp": "2026-11-14T09:54:21.419Z"
+    },
+    {
+      "contract": "Token",
+      "implementation": "0x0eBFcbDA82979f22F1AfCDaF7cbe9A3E56A8C05e",
+      "proxy": "0xC7701fC65125C0a5cdBc760806F8fCf33D2aD2E0",
+      "deployer": "0x9D573489d9D49eCD970E399D97AF6Be20cDf65Ce",
+      "chainId": 84532,
+      "note": "2026-11-14 re-deploy; owner=deployer, rate=4000, tokenUnit=1e18, nativeActive=true",
+      "timestamp": "2026-11-14T09:58:37.110Z"
+    },
+    {
+      "contract": "BaseBLS",
+      "address": "0x2921A9385F94A78572A33C2590C94B93A5Ee2841",
+      "target": "0x9D573489d9D49eCD970E399D97AF6Be20cDf65Ce",
+      "aggPubkey": "0x00000000000000000000000000000000018f015c1f39438e4040865bfe3574e94edea9d4ac020a871da371f4eccd7884b36e72d13c309d4d949753c4f38e20740000000000000000000000000000000014a169ad3489eb67d45a76c90deb57a6374acdfe8cdc35c434e67ff0b5d4db182dac961925a40af273471216b9eeb241000000000000000000000000000000000ae68134ac11d1cdfa586f460ea2691737c0b2a4810ac6b14d21ab85626f01200cfe64869bfb880ede1a2377db8d85d4000000000000000000000000000000001337cd7b5c340e50999bee596b3fafc6d487cbfedf74796a206a1bf14f67062a2aa7aa601ccc916ed1059a7e14bc2631",
+      "deployer": "0x9D573489d9D49eCD970E399D97AF6Be20cDf65Ce",
+      "chainId": 84532,
+      "note": "target=deployer EOA; setAggPubkey verified (onlyTarget requires EOA target — UUPS proxy fallback delegatecall breaks msg.sender check)",
+      "timestamp": "2026-11-14T09:58:37.110Z"
+    },
+    {
+      "contract": "integrate",
+      "token": "0xC7701fC65125C0a5cdBc760806F8fCf33D2aD2E0",
+      "bls": "0x2921A9385F94A78572A33C2590C94B93A5Ee2841",
+      "chainId": 84532,
+      "note": "Token.subnet -> BaseBLS (target=EOA, aggPubkey set)",
+      "timestamp": "2026-11-14T09:58:37.110Z"
+    }
+  ]
+}
