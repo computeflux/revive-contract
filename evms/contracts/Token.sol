@@ -60,6 +60,21 @@ contract Token is UUPSUpgradeable, OwnableUpgradeable {
     }
     mapping(uint64 => PendingWithdrawal) public pendingWithdrawals;
 
+    /// @notice Relay 事件记录（与 revives/Token 的 EventRecord 一致）
+    /// @dev eventData 为 SCALE 编码，字节与 PolkaVM 版 emit_event 完全一致，relay 可直接复用同一解码器
+    struct EventRecord {
+        bytes targetContract; // 固定 "gateway"
+        bytes eventType; // "Recharge" / "WithdrawalDone" / "WithdrawalCancelled"
+        bytes[] eventData;
+    }
+
+    // ========== Relay 事件存储 ==========
+    // 注意：新增状态变量必须追加在原有变量之后，保持 UUPS 存储布局兼容
+    // 全局事件 nonce（从 1 起单调递增，relay 用 (chainID, nonce) 防重放）
+    uint64 private _eventNonce;
+    // nonce => EventRecord
+    mapping(uint64 => EventRecord) private _relayEvents;
+
     // ========== 事件 ==========
 
     event Recharged(address indexed user, uint256 amount, uint256 points, uint256 timestamp);
@@ -200,6 +215,7 @@ contract Token is UUPSUpgradeable, OwnableUpgradeable {
 
         pendingWd.status = WITHDRAWAL_STATUS_DONE;
         emit WithdrawalDone(nonce);
+        _emitRelayEvent("WithdrawalDone", _singleNonceData(nonce));
     }
 
     /// @notice 用户取消待提现（按 nonce）
@@ -210,6 +226,7 @@ contract Token is UUPSUpgradeable, OwnableUpgradeable {
 
         pendingWd.status = WITHDRAWAL_STATUS_CANCELLED;
         emit WithdrawalCancelled(nonce);
+        _emitRelayEvent("WithdrawalCancelled", _singleNonceData(nonce));
     }
 
     // ========== 管理 ==========
@@ -270,6 +287,49 @@ contract Token is UUPSUpgradeable, OwnableUpgradeable {
         return (p.user, p.token, p.amount, p.status);
     }
 
+    // ========== Relay 查询 ==========
+
+    /// @notice 当前最新事件 nonce（0 表示尚无事件）
+    function getLatestNonce() external view returns (uint64) {
+        return _eventNonce;
+    }
+
+    /// @notice 批量查询事件，to == 0 表示查询到最新
+    /// @dev 跳过不存在的 nonce，语义与 PolkaVM 版 get_events 一致
+    function getEvents(uint64 from, uint64 to) external view returns (EventRecord[] memory) {
+        uint64 end = to == 0 ? _eventNonce : to;
+        if (end > _eventNonce) {
+            end = _eventNonce;
+        }
+        if (_eventNonce == 0 || from > end) {
+            return new EventRecord[](0);
+        }
+
+        uint64 span = end - from + 1;
+        uint64 count = 0;
+        for (uint64 i = 0; i < span; i++) {
+            if (_relayEvents[from + i].targetContract.length != 0) {
+                count++;
+            }
+        }
+
+        EventRecord[] memory out = new EventRecord[](count);
+        uint64 j = 0;
+        for (uint64 i = 0; i < span; i++) {
+            uint64 n = from + i;
+            if (_relayEvents[n].targetContract.length != 0) {
+                out[j] = _relayEvents[n];
+                j++;
+            }
+        }
+        return out;
+    }
+
+    /// @notice 按 nonce 查询单个事件；不存在时返回空记录（targetContract.length == 0）
+    function getEvent(uint64 nonce) external view returns (EventRecord memory) {
+        return _relayEvents[nonce];
+    }
+
     // ========== 默认充值（fallback） ==========
 
     receive() external payable {
@@ -299,6 +359,12 @@ contract Token is UUPSUpgradeable, OwnableUpgradeable {
 
         // 积分由 TEE 子链管理，合约只发事件
         emit Recharged(msg.sender, netValue, points, block.timestamp);
+
+        // relay 事件：Recharge(UniAddr{2, caller}, points)
+        bytes[] memory relayData = new bytes[](2);
+        relayData[0] = _scaleUniAddr(msg.sender);
+        relayData[1] = _scaleU256(points);
+        _emitRelayEvent("Recharge", relayData);
         return points;
     }
 
@@ -335,6 +401,7 @@ contract Token is UUPSUpgradeable, OwnableUpgradeable {
             });
             emit Withdrawn(nonce, user, address(0), netAmount, WITHDRAWAL_STATUS_DONE);
             emit WithdrawalDone(nonce);
+            _emitRelayEvent("WithdrawalDone", _singleNonceData(nonce));
             return;
         }
 
@@ -371,6 +438,12 @@ contract Token is UUPSUpgradeable, OwnableUpgradeable {
 
         // 积分由 TEE 子链管理，合约只发事件
         emit Recharged(msg.sender, netAmount, points, block.timestamp);
+
+        // relay 事件：Recharge(UniAddr{2, caller}, points)
+        bytes[] memory relayData = new bytes[](2);
+        relayData[0] = _scaleUniAddr(msg.sender);
+        relayData[1] = _scaleU256(points);
+        _emitRelayEvent("Recharge", relayData);
         return points;
     }
 
@@ -410,6 +483,7 @@ contract Token is UUPSUpgradeable, OwnableUpgradeable {
             });
             emit Withdrawn(nonce, user, token, netAmount, WITHDRAWAL_STATUS_DONE);
             emit WithdrawalDone(nonce);
+            _emitRelayEvent("WithdrawalDone", _singleNonceData(nonce));
             return;
         }
 
@@ -421,6 +495,50 @@ contract Token is UUPSUpgradeable, OwnableUpgradeable {
             status: WITHDRAWAL_STATUS_PENDING
         });
         emit Withdrawn(nonce, user, token, netAmount, WITHDRAWAL_STATUS_PENDING);
+    }
+
+    // ========== Relay 事件写入 ==========
+
+    /// @dev 记录一条 relay 事件。nonce 从 1 起单调递增，与 PolkaVM 版 emit_event 一致。
+    ///      写入点与 relay 关注的链上日志（Recharged / WithdrawalDone / WithdrawalCancelled）一一对应，
+    ///      因此查询得到的 nonce 与按日志顺序统计的 nonce 相同。
+    function _emitRelayEvent(bytes memory eventType, bytes[] memory eventData) internal {
+        uint64 nonce = _eventNonce + 1;
+        EventRecord storage rec = _relayEvents[nonce];
+        rec.targetContract = bytes("gateway");
+        rec.eventType = eventType;
+        for (uint256 i = 0; i < eventData.length; i++) {
+            rec.eventData.push(eventData[i]);
+        }
+        _eventNonce = nonce;
+    }
+
+    /// @dev SCALE 编码 UniAddr{t = 2, v = 20 字节地址}
+    ///      u32 小端 (0x02000000) + compact(20) = 0x50 + 20 字节地址
+    function _scaleUniAddr(address addr) internal pure returns (bytes memory) {
+        return abi.encodePacked(bytes4(0x02000000), bytes1(0x50), addr);
+    }
+
+    /// @dev SCALE 编码 u256：32 字节小端
+    function _scaleU256(uint256 v) internal pure returns (bytes memory out) {
+        out = new bytes(32);
+        for (uint256 i = 0; i < 32; i++) {
+            out[i] = bytes1(uint8(v >> (8 * i)));
+        }
+    }
+
+    /// @dev SCALE 编码 u64：8 字节小端
+    function _scaleU64(uint64 v) internal pure returns (bytes memory out) {
+        out = new bytes(8);
+        for (uint256 i = 0; i < 8; i++) {
+            out[i] = bytes1(uint8(v >> (8 * i)));
+        }
+    }
+
+    /// @dev 仅含 nonce 的 eventData（WithdrawalDone / WithdrawalCancelled）
+    function _singleNonceData(uint64 nonce) internal pure returns (bytes[] memory data) {
+        data = new bytes[](1);
+        data[0] = _scaleU64(nonce);
     }
 
     // ========== 积分换算 ==========

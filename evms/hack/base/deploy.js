@@ -116,7 +116,19 @@ async function deployBLS(ctx, chain, dry) {
   const { signer } = ctx;
   const BaseBLS = artifact("BaseBLS");
   const v = vectors();
-  const aggPubkey = v.manifest.aggPubkey;
+  // Production deploys must pass the live DKG group key explicitly; falling
+  // back to vectors.json silently wires a test-only key and every submit will
+  // revert with BLSSignatureInvalid.
+  const aggFlag = arg("agg-pubkey");
+  if (!aggFlag) {
+    console.log(
+      "  WARN: --agg-pubkey not set; using vectors.json manifest.aggPubkey (TEST KEY)"
+    );
+  }
+  const aggPubkey = aggFlag || v.manifest.aggPubkey;
+  if (!/^0x[0-9a-fA-F]{512}$/.test(aggPubkey)) {
+    throw new Error(`--agg-pubkey must be 256 bytes (0x + 512 hex), got ${(aggPubkey.length - 2) / 2} bytes`);
+  }
   const g2gen = g2Generator(v);
   const target = arg("target");
   if (!target) throw new Error("--target <addr> required for --deploy-bls");
@@ -176,7 +188,7 @@ async function integrate(ctx, chain, dry) {
   const subnet =
     code && code !== "0x" ? await token.subnet() : ethers.ZeroAddress;
   const target =
-    code && code !== "0x" ? await bls.target() : ethers.ZeroAddress;
+    code && code !== "0x" ? await bls.getFunction("target").staticCall() : ethers.ZeroAddress;
   if (!code || code === "0x") {
     console.log(
       `  warn: --token ${tokenAddr} has no code (not deployed on this network?)`
@@ -219,7 +231,7 @@ async function upgradeToken(ctx, chain, dry) {
   if (dry) {
     console.log("[dry-run] upgradeToken:");
     console.log(`  new impl: Token (${(Token.bytecode.length - 2) / 2} bytes)`);
-    console.log(`  Token.upgradeToAndCall(${tokenAddr}, "0x")`);
+    console.log(`  Token.upgradeTo(${tokenAddr})`);
     return;
   }
 
@@ -231,10 +243,10 @@ async function upgradeToken(ctx, chain, dry) {
   console.log("new implementation:", implAddr);
 
   const token = new ethers.Contract(tokenAddr, Token.abi, signer);
-  await tx(
-    await token["upgradeToAndCall(address,bytes)"](implAddr, "0x"),
-    "UUPS upgradeToAndCall"
-  );
+  // 不用 upgradeToAndCall(impl, "0x")：OZ 的 UUPS upgradeToAndCall 以 forceCall=true
+  // 强制 delegatecall 进新实现，空 data 会命中 Token.receive()，其
+  // require(msg.value > 0) 使升级必然 revert "amount must be > 0"。
+  await tx(await token["upgradeTo(address)"](implAddr), "UUPS upgradeTo");
   saveDeployment(chain.name, {
     contract: "Token-upgrade",
     proxy: tokenAddr,

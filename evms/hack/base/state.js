@@ -110,7 +110,7 @@ async function main() {
     const BaseBLS = artifact("BaseBLS");
     const bls = new ethers.Contract(blsAddr, BaseBLS.abi, provider);
     const [target, aggPubkey, g2gen, bal] = await Promise.all([
-      bls.target(),
+      bls.getFunction("target").staticCall(),
       bls.aggPubkey(),
       bls.g2Generator(),
       provider.getBalance(blsAddr),
